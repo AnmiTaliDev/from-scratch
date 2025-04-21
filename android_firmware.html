@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Руководство по созданию прошивки AOSP</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3, h4 {
+            color: #bb86fc;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3700b3;
+        }
+        h2 {
+            margin-top: 30px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #3700b3;
+        }
+        .container {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        code {
+            font-family: 'Courier New', monospace;
+            background-color: #2d2d2d;
+            color: #03dac6;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        pre {
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .cmd {
+            color: #cf6679;
+            font-weight: bold;
+        }
+        .note {
+            background-color: #31263e;
+            border-left: 4px solid #bb86fc;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #3e2723;
+            border-left: 4px solid #ff7043;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #3e3e3e;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #2e2e2e;
+        }
+        tr:nth-child(even) {
+            background-color: #252525;
+        }
+        .distro-tab {
+            display: none;
+        }
+        .distro-tab.active {
+            display: block;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+        .tab-button {
+            background-color: #2d2d2d;
+            border: none;
+            color: #e0e0e0;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 3px 3px 0 0;
+            margin-right: 5px;
+        }
+        .tab-button:hover {
+            background-color: #3d3d3d;
+        }
+        .tab-button.active {
+            background-color: #bb86fc;
+            color: #121212;
+            font-weight: bold;
+        }
+        .progress-container {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #262626;
+            border-radius: 5px;
+        }
+        .progress-step {
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 3px solid #bb86fc;
+        }
+        .step-title {
+            font-weight: bold;
+            color: #bb86fc;
+        }
+        a {
+            color: #03dac6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .toc {
+            background-color: #262626;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 15px;
+        }
+        .toc li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Руководство по созданию собственной прошивки на AOSP</h1>
+        
+        <div class="toc">
+            <h3>Содержание</h3>
+            <ul>
+                <li><a href="#intro">Введение</a></li>
+                <li><a href="#requirements">Системные требования</a></li>
+                <li><a href="#packages">Установка необходимых пакетов</a></li>
+                <li><a href="#setup">Настройка рабочей среды</a></li>
+                <li><a href="#repo">Инициализация репозитория</a></li>
+                <li><a href="#source">Загрузка исходного кода</a></li>
+                <li><a href="#device">Добавление поддержки устройства</a></li>
+                <li><a href="#build">Сборка прошивки</a></li>
+                <li><a href="#custom">Кастомизация прошивки</a></li>
+                <li><a href="#flash">Прошивка устройства</a></li>
+                <li><a href="#troubleshooting">Устранение неполадок</a></li>
+            </ul>
+        </div>
+        
+        <section id="intro">
+            <h2>Введение</h2>
+            <p>AOSP (Android Open Source Project) — это открытый исходный код операционной системы Android, поддерживаемый Google. Создание собственной прошивки на основе AOSP позволяет получить полный контроль над системой, добавить новые функции, улучшить производительность и безопасность, а также убрать нежелательные компоненты.</p>
+            
+            <p>В этом руководстве мы рассмотрим полный процесс создания собственной прошивки на базе AOSP, начиная с установки необходимых инструментов и заканчивая созданием образа прошивки, готового к установке на устройство.</p>
+            
+            <div class="note">
+                <strong>Примечание:</strong> Этот процесс требует определенных технических знаний и может занять значительное количество времени и ресурсов компьютера. Создание прошивки AOSP — это сложный процесс, требующий терпения и понимания системы Android.
+            </div>
+        </section>
+        
+        <section id="requirements">
+            <h2>Системные требования</h2>
+            <p>Перед началом работы убедитесь, что ваш компьютер соответствует минимальным требованиям для сборки AOSP:</p>
+            
+            <ul>
+                <li><strong>Операционная система:</strong> Linux (рекомендуется Ubuntu/Debian), macOS или Windows с WSL</li>
+                <li><strong>Процессор:</strong> Многоядерный процессор (рекомендуется не менее 8 ядер)</li>
+                <li><strong>Оперативная память:</strong> Минимум 16 ГБ, рекомендуется 32 ГБ и более</li>
+                <li><strong>Свободное место на диске:</strong> Минимум 200 ГБ (рекомендуется SSD)</li>
+                <li><strong>Подключение к интернету:</strong> Высокоскоростное соединение для загрузки исходного кода</li>
+            </ul>
+            
+            <div class="warning">
+                <strong>Внимание!</strong> Сборка AOSP требует значительных вычислительных ресурсов и может занять от нескольких часов до суток в зависимости от мощности вашего компьютера и объема включаемых компонентов.
+            </div>
+        </section>
+        
+        <section id="packages">
+            <h2>Установка необходимых пакетов</h2>
+            <p>Для начала работы с AOSP необходимо установить набор инструментов разработки. Выберите вашу операционную систему:</p>
+            
+            <div class="tab-buttons">
+                <button class="tab-button active" onclick="openDistro(event, 'ubuntu')">Ubuntu</button>
+                <button class="tab-button" onclick="openDistro(event, 'debian')">Debian</button>
+                <button class="tab-button" onclick="openDistro(event, 'fedora')">Fedora</button>
+                <button class="tab-button" onclick="openDistro(event, 'arch')">Arch Linux</button>
+                <button class="tab-button" onclick="openDistro(event, 'macos')">macOS</button>
+            </div>
+            
+            <div id="ubuntu" class="distro-tab active">
+                <h3>Ubuntu</h3>
+                <p>Для Ubuntu 20.04/22.04:</p>
+                <pre><code>sudo apt update
+sudo apt install git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig</code></pre>
+                
+                <p>Установите JDK 11:</p>
+                <pre><code>sudo apt install openjdk-11-jdk</code></pre>
+                
+                <p>Установите Python и необходимые инструменты:</p>
+                <pre><code>sudo apt install python3 python3-pip
+pip3 install argparse mkdocs ninja mako jinja2</code></pre>
+            </div>
+            
+            <div id="debian" class="distro-tab">
+                <h3>Debian</h3>
+                <p>Для Debian 11 (Bullseye) или новее:</p>
+                <pre><code>sudo apt update
+sudo apt install git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip fontconfig</code></pre>
+                
+                <p>Установите JDK 11:</p>
+                <pre><code>sudo apt install openjdk-11-jdk</code></pre>
+                
+                <p>Установите Python и необходимые инструменты:</p>
+                <pre><code>sudo apt install python3 python3-pip
+pip3 install argparse mkdocs ninja mako jinja2</code></pre>
+            </div>
+            
+            <div id="fedora" class="distro-tab">
+                <h3>Fedora</h3>
+                <p>Для Fedora 36 или новее:</p>
+                <pre><code>sudo dnf update
+sudo dnf install git curl wget gcc gcc-c++ glibc-devel.{x86_64,i686} zlib-devel.{x86_64,i686} libstdc++-devel.{x86_64,i686} ncurses-devel.{x86_64,i686} zlib-devel bison flex gperf SDL-devel readline-devel squashfs-tools ncurses-devel bzip2-devel make libxml2-utils unzip perl-Digest-SHA</code></pre>
+                
+                <p>Установите JDK 11:</p>
+                <pre><code>sudo dnf install java-11-openjdk-devel</code></pre>
+                
+                <p>Установите Python и необходимые инструменты:</p>
+                <pre><code>sudo dnf install python3 python3-pip
+pip3 install argparse mkdocs ninja mako jinja2</code></pre>
+            </div>
+            
+            <div id="arch" class="distro-tab">
+                <h3>Arch Linux</h3>
+                <p>Для Arch Linux и его производных:</p>
+                <pre><code>sudo pacman -Syu
+sudo pacman -S git gnupg flex bison gcc gcc-libs gperf sdl wxgtk2 squashfs-tools curl ncurses zlib schedtool perl-switch zip unzip libxslt python2 python-virtualenv bc rsync ccache lib32-zlib lib32-ncurses lib32-readline lib32-gcc-libs jdk11-openjdk</code></pre>
+                
+                <p>Установите AUR-пакеты (с помощью yay или другого менеджера AUR):</p>
+                <pre><code>yay -S lib32-ncurses5-compat-libs lib32-readline5</code></pre>
+                
+                <p>Установите необходимые инструменты Python:</p>
+                <pre><code>pip install argparse mkdocs ninja mako jinja2</code></pre>
+            </div>
+            
+            <div id="macos" class="distro-tab">
+                <h3>macOS</h3>
+                <p>Для macOS, сначала установите Homebrew, если его нет:</p>
+                <pre><code>ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"</code></pre>
+                
+                <p>Затем установите необходимые инструменты:</p>
+                <pre><code>brew install git gnupg coreutils findutils gnu-sed gawk gnu-getopt
+brew install openssl python ninja
+pip3 install argparse mkdocs mako jinja2</code></pre>
+                
+                <p>Установите JDK 11:</p>
+                <pre><code>brew tap homebrew/cask
+brew install --cask temurin11</code></pre>
+                
+                <div class="note">
+                    <strong>Примечание:</strong> macOS имеет ограниченную поддержку для сборки AOSP и может потребовать дополнительных настроек для работы с чувствительными к регистру файловыми системами.
+                </div>
+            </div>
+        </section>
+        
+        <section id="setup">
+            <h2>Настройка рабочей среды</h2>
+            <p>Перед началом сборки AOSP необходимо настроить некоторые переменные окружения и создать рабочую директорию.</p>
+            
+            <h3>Создание рабочей директории</h3>
+            <pre><code>mkdir -p ~/android/aosp
+cd ~/android/aosp</code></pre>
+            
+            <h3>Настройка переменных окружения</h3>
+            <p>Добавьте следующие строки в ваш <code>~/.bashrc</code> или <code>~/.zshrc</code>:</p>
+            <pre><code># Настройка для AOSP
+export USE_CCACHE=1
+export CCACHE_EXEC=/usr/bin/ccache
+export CCACHE_DIR=~/.ccache
+export JACK_SERVER_VM_ARGUMENTS="-Dfile.encoding=UTF-8 -XX:+TieredCompilation -Xmx4g"
+export ANDROID_JACK_VM_ARGS="-Dfile.encoding=UTF-8 -XX:+TieredCompilation -Xmx4g"</code></pre>
+            
+            <p>Примените изменения в текущей сессии:</p>
+            <pre><code>source ~/.bashrc  # или source ~/.zshrc если используете zsh</code></pre>
+            
+            <h3>Настройка ccache</h3>
+            <p>Для ускорения повторных сборок рекомендуется настроить ccache с большим размером кэша:</p>
+            <pre><code>ccache -M 50G</code></pre>
+            
+            <div class="note">
+                <strong>Совет:</strong> Размер кэша можно настроить в зависимости от доступного места на диске, но для комфортной работы рекомендуется не менее 50 ГБ.
+            </div>
+        </section>
+        
+        <section id="repo">
+            <h2>Инициализация репозитория</h2>
+            <p>Для работы с исходным кодом AOSP используется инструмент <code>repo</code>. Сначала установим его:</p>
+            
+            <pre><code>mkdir -p ~/bin
+curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+chmod a+x ~/bin/repo
+export PATH=~/bin:$PATH</code></pre>
+            
+            <p>Добавьте <code>export PATH=~/bin:$PATH</code> в ваш <code>~/.bashrc</code> или <code>~/.zshrc</code> для постоянного эффекта.</p>
+            
+            <h3>Настройка Git</h3>
+            <pre><code>git config --global user.name "Ваше имя"
+git config --global user.email "ваш.email@example.com"</code></pre>
+        </section>
+        
+        <section id="source">
+            <h2>Загрузка исходного кода</h2>
+            <p>Теперь можно инициализировать репозиторий и загрузить исходный код AOSP. Это может занять несколько часов в зависимости от скорости вашего интернет-соединения.</p>
+            
+            <h3>Инициализация репозитория</h3>
+            <pre><code>cd ~/android/aosp
+repo init -u https://android.googlesource.com/platform/manifest -b android-13.0.0_r24</code></pre>
+            
+            <div class="note">
+                <strong>Примечание:</strong> <code>android-13.0.0_r24</code> - это тег для Android 13. Вы можете выбрать другую версию Android заменив этот тег на нужный. Список доступных тегов можно найти на сайте <a href="https://source.android.com/setup/start/build-numbers#source-code-tags-and-builds" target="_blank">Android Source</a>.
+            </div>
+            
+            <h3>Загрузка исходного кода</h3>
+            <pre><code>repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags</code></pre>
+            
+            <div class="warning">
+                <strong>Внимание!</strong> Эта команда загрузит около 100 ГБ данных и может занять очень много времени в зависимости от скорости интернета. Рекомендуется запускать её в screen или tmux сессии, чтобы процесс не прервался при разрыве соединения.
+            </div>
+            
+            <p>Параметры команды:</p>
+            <ul>
+                <li><code>-c</code> - загружать только текущую ветку, а не всю историю</li>
+                <li><code>-j$(nproc --all)</code> - использовать все доступные ядра процессора</li>
+                <li><code>--force-sync</code> - перезаписывать любые локальные изменения</li>
+                <li><code>--no-clone-bundle</code> - не использовать bundle, полезно при проблемах с подключением</li>
+                <li><code>--no-tags</code> - не загружать теги Git, экономит время</li>
+            </ul>
+        </section>
+        
+        <section id="device">
+            <h2>Добавление поддержки устройства</h2>
+            <p>Для сборки прошивки для конкретного устройства необходимо добавить его конфигурационные файлы. Есть несколько способов получить их:</p>
+            
+            <h3>Использование LineageOS как источника</h3>
+            <p>LineageOS содержит конфигурации для многих устройств. Создайте файлы для подключения репозиториев:</p>
+            
+            <p>Создайте файл <code>local_manifests</code>:</p>
+            <pre><code>mkdir -p .repo/local_manifests</code></pre>
+            
+            <p>Создайте файл <code>.repo/local_manifests/[ваше_устройство].xml</code> со следующим содержимым (пример для Google Pixel 6):</p>
+            
+            <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;manifest&gt;
+  &lt;project name="LineageOS/android_device_google_gs101" path="device/google/gs101" remote="github" /&gt;
+  &lt;project name="LineageOS/android_device_google_pixel-common" path="device/google/pixel-common" remote="github" /&gt;
+  &lt;project name="LineageOS/android_device_google_raviole" path="device/google/raviole" remote="github" /&gt;
+  &lt;project name="LineageOS/android_kernel_google_gs101" path="kernel/google/gs101" remote="github" /&gt;
+  &lt;project name="LineageOS/android_vendor_google" path="vendor/google" remote="github" /&gt;
+&lt;/manifest&gt;</code></pre>
+            
+            <p>Затем синхронизируйте эти репозитории:</p>
+            <pre><code>repo sync -j$(nproc --all)</code></pre>
+            
+            <div class="note">
+                <strong>Примечание:</strong> Вам нужно заменить пути и названия репозиториев согласно вашему устройству. Информацию о нужных репозиториях можно найти в GitHub организации LineageOS или других кастомных прошивок.
+            </div>
+            
+            <h3>Создание собственных конфигураций</h3>
+            <p>Если для вашего устройства нет готовых конфигураций, вам придется создать их самостоятельно. Для этого нужно:</p>
+            
+            <ol>
+                <li>Создать директорию <code>device/[производитель]/[кодовое_имя]</code></li>
+                <li>Создать основные конфигурационные файлы:
+                    <ul>
+                        <li><code>AndroidProducts.mk</code></li>
+                        <li><code>BoardConfig.mk</code></li>
+                        <li><code>device.mk</code></li>
+                        <li><code>[кодовое_имя].mk</code></li>
+                    </ul>
+                </li>
+                <li>Добавить драйверы и бинарные файлы в <code>vendor/[производитель]/[кодовое_имя]</code></li>
+            </ol>
+            
+            <p>Это сложный процесс, требующий хороших знаний структуры Android и опыта работы с ним.</p>
+        </section>
+        
+        <section id="build">
+            <h2>Сборка прошивки</h2>
+            <p>После добавления конфигурации устройства можно приступать к сборке прошивки.</p>
+            
+            <h3>Подготовка окружения сборки</h3>
+            <pre><code>cd ~/android/aosp
+source build/envsetup.sh</code></pre>
+            
+            <h3>Выбор цели сборки</h3>
+            <p>Выберите конфигурацию вашего устройства:</p>
+            <pre><code>lunch aosp_[кодовое_имя]-[вариант]</code></pre>
+            
+            <p>Например, для Google Pixel 6 в режиме разработчика:</p>
+            <pre><code>lunch aosp_oriole-userdebug</code></pre>
+            
+            <p>Варианты сборки:</p>
+            <ul>
+                <li><code>user</code> - ограниченная версия для конечных пользователей (без root)</li>
+                <li><code>userdebug</code> - похожа на user, но с root и отладочными возможностями</li>
+                <li><code>eng</code> - инженерная сборка с полным доступом к отладке</li>
+            </ul>
+            
+            <h3>Начало сборки</h3>
+            <pre><code>make -j$(nproc --all)</code></pre>
+            
+            <div class="note">
+                <strong>Совет:</strong> Для ускорения сборки можно использовать меньшее количество ядер, если ваша система не имеет достаточно ОЗУ. Например, <code>make -j8</code> для использования 8 ядер.
+            </div>
+            
+            <p>Процесс сборки может занять от 1 до 8 часов в зависимости от мощности вашего компьютера.</p>
+            
+            <h3>Сборка только системного образа</h3>
+            <p>Если вам нужно собрать только системный образ (например, после внесения изменений):</p>
+            <pre><code>make systemimage -j$(nproc --all)</code></pre>
+            
+            <h3>Результаты сборки</h3>
+            <p>После успешной сборки, файлы прошивки будут находиться в директории:</p>
+            <pre><code>~/android/aosp/out/target/product/[кодовое_имя]/</code></pre>
+            
+            <p>Основные файлы:</p>
+            <ul>
+                <li><code>system.img</code> - образ системного раздела</li>
+                <li><code>vendor.img</code> - образ раздела с проприетарными драйверами</li>
+                <li><code>boot.img</code> - образ раздела загрузки (ядро и initramfs)</li>
+                <li><code>recovery.img</code> - образ раздела восстановления</li>
+                <li><code>userdata.img</code> - образ раздела пользовательских данных</li>
+            </ul>
+        </section>
+        
+        <section id="custom">
+            <h2>Кастомизация прошивки</h2>
+            <p>Теперь рассмотрим как можно настроить и изменить прошивку по своему вкусу.</p>
+            
+            <h3>Добавление собственного приложения</h3>
+            <p>Для добавления своего приложения в прошивку:</p>
+            
+            <ol>
+                <li>Создайте директорию для приложения: <code>mkdir -p packages/apps/МоеПриложение</code></li>
+                <li>Поместите исходный код в эту директорию</li>
+                <li>Создайте файл <code>Android.mk</code> с описанием сборки</li>
+                <li>Добавьте приложение в список для сборки, добавив в <code>device/[производитель]/[кодовое_имя]/device.mk</code>:
+                <pre><code>PRODUCT_PACKAGES += \
+    МоеПриложение</code></pre>
+                </li>
+            </ol>
+            
+            <h3>Изменение системных настроек по умолчанию</h3>
+            <p>Для изменения настроек системы по умолчанию:</p>
+            <pre><code>mkdir -p device/[производитель]/[кодовое_имя]/overlay/frameworks/base/core/res/res/values/</code></pre>
+            
+            <p>Создайте файл <code>config.xml</code> в этой директории:</p>
+            <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;resources&gt;
+    &lt;!-- Пример настройки --&gt;
+    &lt;bool name="config_dozeAlwaysOnEnabled"&gt;true&lt;/bool&gt;
+&lt;/resources&gt;</code></pre>
+            
+            <h3>Настройка темы и брендинга</h3>
+            <p>Для изменения брендинга прошивки:</p>
+            
+            <ol>
+                <li>Измените логотип загрузки: <code>device/[производитель]/[кодовое_имя]/bootanimation.zip</code></li>
+                <li>Измените обои по умолчанию: <code>frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png</code></li>
+                <li>Создайте оверлей для SystemUI с вашими изменениями</li>
+            </ol>
+            
+            <h3>Изменение ядра системы</h3>
+            <p>Для модификации ядра:</p>
+            <pre><code>cd kernel/[производитель]/[кодовое_имя]
+make menuconfig  # Интерфейс конфигурации ядра</code></pre>
+
+          <p>После внесения изменений, пересоберите ядро и затем снова соберите образ boot.img:</p>
+            <pre><code>cd ~/android/aosp
+make bootimage -j$(nproc --all)</code></pre>
+            
+            <div class="warning">
+                <strong>Предупреждение:</strong> Модификация ядра требует хорошего понимания работы Linux и может привести к нестабильной работе устройства при неправильных настройках.
+            </div>
+        </section>
+        
+        <section id="flash">
+            <h2>Прошивка устройства</h2>
+            <p>После успешной сборки прошивки нужно установить её на устройство.</p>
+            
+            <h3>Подготовка устройства</h3>
+            <ol>
+                <li>Включите режим разработчика на устройстве:
+                    <ul>
+                        <li>Перейдите в Настройки → О телефоне</li>
+                        <li>Нажмите на номер сборки 7 раз</li>
+                    </ul>
+                </li>
+                <li>Включите отладку по USB:
+                    <ul>
+                        <li>Перейдите в Настройки → Для разработчиков</li>
+                        <li>Включите "Отладка по USB"</li>
+                    </ul>
+                </li>
+                <li>Разблокируйте загрузчик (bootloader):
+                    <pre><code>adb reboot bootloader
+fastboot flashing unlock</code></pre>
+                    <p>Подтвердите разблокировку на устройстве.</p>
+                </li>
+            </ol>
+            
+            <div class="warning">
+                <strong>Внимание!</strong> Разблокировка загрузчика приведет к полной очистке данных устройства. Сделайте резервную копию всех важных данных перед продолжением.
+            </div>
+            
+            <h3>Прошивка образов</h3>
+            <p>Для прошивки полного набора образов:</p>
+            <pre><code>cd ~/android/aosp
+export DEVICE=[кодовое_имя]
+fastboot flash boot out/target/product/$DEVICE/boot.img
+fastboot flash system out/target/product/$DEVICE/system.img
+fastboot flash vendor out/target/product/$DEVICE/vendor.img
+fastboot flash dtbo out/target/product/$DEVICE/dtbo.img
+fastboot flash vbmeta out/target/product/$DEVICE/vbmeta.img --disable-verification
+fastboot reboot</code></pre>
+            
+            <h3>Альтернативный метод с помощью fastboot update</h3>
+            <p>Можно также использовать OTA-пакет для прошивки:</p>
+            <pre><code>fastboot update out/target/product/$DEVICE/[название-пакета].zip</code></pre>
+            
+            <h3>Первый запуск</h3>
+            <p>Первая загрузка системы может занять больше времени, чем обычно. Это нормально, так как система выполняет начальную оптимизацию и настройку.</p>
+        </section>
+        
+        <section id="troubleshooting">
+            <h2>Устранение неполадок</h2>
+            <p>При создании и установке кастомной прошивки могут возникнуть различные проблемы. Вот решения для наиболее распространенных из них:</p>
+            
+            <h3>Проблемы при сборке</h3>
+            
+            <h4>Ошибка "command not found"</h4>
+            <pre><code>source build/envsetup.sh</code></pre>
+            <p>Убедитесь, что вы выполнили инициализацию окружения сборки.</p>
+            
+            <h4>Ошибки компиляции</h4>
+            <p>Попробуйте выполнить чистую сборку:</p>
+            <pre><code>make clean
+make clobber
+source build/envsetup.sh
+lunch aosp_[кодовое_имя]-userdebug
+make -j$(nproc --all)</code></pre>
+            
+            <h4>Недостаточно места на диске</h4>
+            <p>Освободите место и удалите ненужные файлы:</p>
+            <pre><code>cd ~/android/aosp
+rm -rf out/target/product/*/obj/PACKAGING/</code></pre>
+            
+            <h3>Проблемы при установке</h3>
+            
+            <h4>Устройство не определяется через ADB</h4>
+            <ul>
+                <li>Проверьте, включена ли отладка по USB</li>
+                <li>Проверьте USB-кабель</li>
+                <li>Установите драйверы устройства</li>
+                <li>Выполните команду <code>adb devices</code> и убедитесь, что устройство в списке</li>
+            </ul>
+            
+            <h4>Ошибка "no permissions" в fastboot</h4>
+            <p>Добавьте правила udev для вашего устройства:</p>
+            <pre><code>sudo nano /etc/udev/rules.d/51-android.rules</code></pre>
+            
+            <p>Добавьте строку:</p>
+            <pre><code>SUBSYSTEM=="usb", ATTR{idVendor}=="[ID производителя]", MODE="0666", GROUP="plugdev"</code></pre>
+            
+            <p>Затем:</p>
+            <pre><code>sudo chmod a+r /etc/udev/rules.d/51-android.rules
+sudo service udev restart</code></pre>
+            
+            <h4>Зацикливание загрузки (bootloop)</h4>
+            <p>Вернитесь в стоковую прошивку:</p>
+            <pre><code>fastboot flash system stock_system.img
+fastboot flash boot stock_boot.img
+fastboot reboot</code></pre>
+            
+            <h4>Невозможно смонтировать /system</h4>
+            <p>Проблема может быть в несовместимости файловой системы или неправильном формате раздела. Попробуйте:</p>
+            <pre><code>fastboot format:ext4 system
+fastboot flash system system.img</code></pre>
+        </section>
+        
+        <section id="advanced">
+            <h2>Дополнительные возможности</h2>
+            
+            <h3>Подпись образов прошивки</h3>
+            <p>Для дополнительной безопасности рекомендуется подписывать образы прошивки:</p>
+            
+            <pre><code>cd ~/android/aosp
+source build/envsetup.sh
+lunch aosp_[кодовое_имя]-userdebug
+make -j$(nproc --all) target-files-package</code></pre>
+            
+            <p>Создание ключей подписи:</p>
+            <pre><code>mkdir -p ~/.android-certs
+development/tools/make_key ~/.android-certs/releasekey '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+development/tools/make_key ~/.android-certs/platform '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+development/tools/make_key ~/.android-certs/shared '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'
+development/tools/make_key ~/.android-certs/media '/C=US/ST=California/L=Mountain View/O=Android/OU=Android/CN=Android/emailAddress=android@android.com'</code></pre>
+            
+            <p>Подпись образа:</p>
+            <pre><code>sign_target_files_apks -o -d ~/.android-certs \
+    out/target/product/$DEVICE/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
+    signed-target_files.zip
+
+ota_from_target_files -k ~/.android-certs/releasekey \
+    signed-target_files.zip \
+    signed-ota_update.zip</code></pre>
+        
+            <h3>Автоматизация сборки</h3>
+            <p>Для автоматизации процесса сборки можно создать скрипт сборки:</p>
+            
+            <pre><code>#!/bin/bash
+# build_aosp.sh
+
+# Настройка переменных
+DEVICE="[кодовое_имя]"
+VARIANT="userdebug"
+THREADS=$(nproc --all)
+BUILD_DIR="$HOME/android/aosp"
+
+# Переход в директорию сборки
+cd $BUILD_DIR
+
+# Инициализация среды сборки
+source build/envsetup.sh
+
+# Выбор цели сборки
+lunch aosp_${DEVICE}-${VARIANT}
+
+# Очистка предыдущей сборки
+make clean
+
+# Запуск сборки
+make -j${THREADS}
+
+# Проверка успешности сборки
+if [ $? -eq 0 ]; then
+    echo "Сборка успешно завершена!"
+    echo "Файлы прошивки находятся в: $BUILD_DIR/out/target/product/$DEVICE/"
+else
+    echo "Во время сборки произошла ошибка!"
+    exit 1
+fi</code></pre>
+            
+            <p>Сделайте скрипт исполняемым и запустите его:</p>
+            <pre><code>chmod +x build_aosp.sh
+./build_aosp.sh</code></pre>
+            
+            <h3>Непрерывная интеграция (CI)</h3>
+            <p>Для организации автоматической сборки при изменениях в репозитории можно использовать Jenkins или GitHub Actions:</p>
+            
+            <p>Пример конфигурации для GitHub Actions (<code>.github/workflows/build.yml</code>):</p>
+            <pre><code>name: Build AOSP
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:20.04
+      
+    steps:
+    - name: Install dependencies
+      run: |
+        apt-get update
+        apt-get install -y git-core gnupg flex bison build-essential zip curl zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev libxml2-utils xsltproc unzip python3 python3-pip openjdk-11-jdk
+
+    - name: Setup repo tool
+      run: |
+        mkdir -p ~/bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/bin/repo
+        chmod a+x ~/bin/repo
+        export PATH=~/bin:$PATH
+
+    - name: Initialize repo
+      run: |
+        mkdir -p ~/android/aosp
+        cd ~/android/aosp
+        repo init -u https://android.googlesource.com/platform/manifest -b android-13.0.0_r24
+        
+    - name: Sync repo
+      run: |
+        cd ~/android/aosp
+        repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+
+    - name: Build AOSP
+      run: |
+        cd ~/android/aosp
+        source build/envsetup.sh
+        lunch aosp_[кодовое_имя]-userdebug
+        make -j$(nproc --all)
+        
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v2
+      with:
+        name: aosp-images
+        path: ~/android/aosp/out/target/product/[кодовое_имя]/*.img</code></pre>
+        </section>
+        
+        <section id="conclusion">
+            <h2>Заключение</h2>
+            <p>Создание собственной прошивки на базе AOSP — это сложный, но увлекательный процесс, который даёт полный контроль над системой Android на вашем устройстве. В этом руководстве мы рассмотрели основные шаги от установки необходимых инструментов до сборки и установки готовой прошивки.</p>
+            
+            <p>Ключевые преимущества собственной прошивки AOSP:</p>
+            <ul>
+                <li>Полный контроль над всеми компонентами системы</li>
+                <li>Отсутствие нежелательного программного обеспечения (bloatware)</li>
+                <li>Возможность добавления уникальных функций</li>
+                <li>Улучшенная безопасность и производительность</li>
+                <li>Более длительная поддержка устаревших устройств</li>
+            </ul>
+            
+            <p>Помните, что работа с исходным кодом AOSP требует терпения, технических знаний и готовности к экспериментам. Не бойтесь искать помощь в сообществах разработчиков Android, таких как XDA Developers.</p>
+            
+            <div class="note">
+                <strong>Дополнительные ресурсы:</strong>
+                <ul>
+                    <li><a href="https://source.android.com/" target="_blank">Android Open Source Project (официальный сайт)</a></li>
+                    <li><a href="https://developer.android.com/" target="_blank">Android Developers</a></li>
+                    <li><a href="https://forum.xda-developers.com/" target="_blank">XDA Developers Forum</a></li>
+                    <li><a href="https://github.com/LineageOS" target="_blank">LineageOS на GitHub</a></li>
+                </ul>
+            </div>
+        </section>
+    </div>
+    
+    <script>
+        function openDistro(evt, distroName) {
+            var i, tabcontent, tablinks;
+            
+            tabcontent = document.getElementsByClassName("distro-tab");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            
+            tablinks = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            
+            document.getElementById(distroName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+    </script>
+</body>
+</html>
