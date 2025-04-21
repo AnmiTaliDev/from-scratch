@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создание собственного дистрибутива на базе Debian</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3, h4 {
+            color: #bb86fc;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3700b3;
+        }
+        h2 {
+            margin-top: 30px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #3700b3;
+        }
+        .container {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        code {
+            font-family: 'Courier New', monospace;
+            background-color: #2d2d2d;
+            color: #03dac6;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        pre {
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .cmd {
+            color: #cf6679;
+            font-weight: bold;
+        }
+        .note {
+            background-color: #31263e;
+            border-left: 4px solid #bb86fc;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #3e2723;
+            border-left: 4px solid #ff7043;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #3e3e3e;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #2e2e2e;
+        }
+        tr:nth-child(even) {
+            background-color: #252525;
+        }
+        .distro-tab {
+            display: none;
+        }
+        .distro-tab.active {
+            display: block;
+        }
+        .tab-buttons {
+            display: flex;
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+        .tab-button {
+            background-color: #2d2d2d;
+            border: none;
+            color: #e0e0e0;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 3px 3px 0 0;
+            margin-right: 5px;
+        }
+        .tab-button:hover {
+            background-color: #3d3d3d;
+        }
+        .tab-button.active {
+            background-color: #bb86fc;
+            color: #121212;
+            font-weight: bold;
+        }
+        .progress-container {
+            margin: 30px 0;
+            padding: 20px;
+            background-color: #262626;
+            border-radius: 5px;
+        }
+        .progress-step {
+            margin-bottom: 15px;
+            padding-left: 10px;
+            border-left: 3px solid #bb86fc;
+        }
+        .step-title {
+            font-weight: bold;
+            color: #bb86fc;
+        }
+        a {
+            color: #03dac6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .toc {
+            background-color: #262626;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 15px;
+        }
+        .toc li {
+            margin-bottom: 5px;
+        }
+        .image-container {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .image-container img {
+            max-width: 100%;
+            border-radius: 5px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        }
+        button {
+            background-color: #bb86fc;
+            color: #121212;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #a16afa;
+        }
+    </style>
+</head>
+<body>
+    <h1>Создание собственного дистрибутива на базе Debian</h1>
+    
+    <div class="container">
+        <p>Этот подробный гайд проведёт вас через весь процесс создания вашего собственного дистрибутива Linux на основе Debian. Мы рассмотрим все этапы от подготовки рабочей среды до создания финального ISO-образа.</p>
+    </div>
+
+    <div class="toc">
+        <h3>Содержание</h3>
+        <ul>
+            <li><a href="#introduction">1. Введение</a></li>
+            <li><a href="#preparation">2. Подготовка рабочей среды</a></li>
+            <li><a href="#base-system">3. Создание базовой системы</a></li>
+            <li><a href="#customization">4. Настройка и кастомизация</a></li>
+            <li><a href="#package-management">5. Управление пакетами</a></li>
+            <li><a href="#branding">6. Брендинг и визуальный стиль</a></li>
+            <li><a href="#iso-creation">7. Создание ISO-образа</a></li>
+            <li><a href="#testing">8. Тестирование</a></li>
+            <li><a href="#distribution">9. Распространение</a></li>
+            <li><a href="#maintenance">10. Поддержка и обновление</a></li>
+        </ul>
+    </div>
+
+    <div class="container" id="introduction">
+        <h2>1. Введение</h2>
+        <p>Создание собственного дистрибутива Linux — это увлекательный процесс, который позволяет вам создать операционную систему, точно соответствующую вашим потребностям или потребностям вашей организации. Debian является отличной основой для этого благодаря своей стабильности, безопасности и обширному репозиторию программного обеспечения.</p>
+        
+        <div class="note">
+            <p><strong>Примечание:</strong> Этот гайд предполагает, что у вас есть базовые знания Linux и командной строки. Если вы новичок, рекомендуем сначала ознакомиться с основами работы в Linux.</p>
+        </div>
+        
+        <h3>Почему Debian?</h3>
+        <p>Debian предлагает несколько преимуществ как основа для вашего дистрибутива:</p>
+        <ul>
+            <li>Проверенная годами стабильность и надежность</li>
+            <li>Огромный репозиторий программ (более 50 000 пакетов)</li>
+            <li>Строгая система контроля качества</li>
+            <li>Хорошая документация и активное сообщество</li>
+            <li>Гибкость настройки и адаптации</li>
+        </ul>
+    </div>
+
+    <div class="container" id="preparation">
+        <h2>2. Подготовка рабочей среды</h2>
+        
+        <h3>Системные требования</h3>
+        <p>Для создания дистрибутива вам понадобится:</p>
+        <ul>
+            <li>Компьютер с Linux (предпочтительно Debian или Ubuntu)</li>
+            <li>Минимум 4 ГБ оперативной памяти (рекомендуется 8 ГБ или больше)</li>
+            <li>Не менее 20 ГБ свободного места на диске</li>
+            <li>Стабильное подключение к интернету</li>
+        </ul>
+        
+        <h3>Установка необходимых инструментов</h3>
+        <p>Начнем с установки основных инструментов, необходимых для создания дистрибутива:</p>
+        
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="openTab(event, 'debian-tools')">Debian/Ubuntu</button>
+            <button class="tab-button" onclick="openTab(event, 'fedora-tools')">Fedora</button>
+            <button class="tab-button" onclick="openTab(event, 'arch-tools')">Arch Linux</button>
+        </div>
+        
+        <div id="debian-tools" class="distro-tab active">
+            <pre><span class="cmd">sudo apt update
+sudo apt install debootstrap squashfs-tools xorriso isolinux syslinux-common \
+    grub-pc-bin grub-efi-amd64-bin mtools live-build cdebootstrap</span></pre>
+        </div>
+        
+        <div id="fedora-tools" class="distro-tab">
+            <pre><span class="cmd">sudo dnf update
+sudo dnf install debootstrap squashfs-tools xorriso syslinux grub2 mtools genisoimage</span></pre>
+        </div>
+        
+        <div id="arch-tools" class="distro-tab">
+            <pre><span class="cmd">sudo pacman -Syu
+sudo pacman -S debootstrap squashfs-tools libisoburn syslinux grub mtools</span></pre>
+        </div>
+        
+        <h3>Создание рабочей директории</h3>
+        <p>Теперь создадим структуру директорий для нашего проекта:</p>
+        
+        <pre><span class="cmd">mkdir -p ~/mydistro/{chroot,iso/{boot,isolinux,live}}
+cd ~/mydistro</span></pre>
+        
+        <div class="note">
+            <p><strong>Совет:</strong> Хорошей практикой является использование системы контроля версий (например, Git) для отслеживания изменений в ваших конфигурационных файлах.</p>
+        </div>
+    </div>
+
+    <div class="container" id="base-system">
+        <h2>3. Создание базовой системы</h2>
+        
+        <p>Теперь мы создадим базовую минимальную систему Debian, которую затем будем настраивать.</p>
+        
+        <h3>Использование debootstrap</h3>
+        <p>Debootstrap — это инструмент, который устанавливает базовую систему Debian в подкаталог другой уже установленной системы.</p>
+        
+        <div class="progress-container">
+            <div class="progress-step">
+                <div class="step-title">Шаг 1: Создание базовой системы</div>
+                <pre><span class="cmd">sudo debootstrap --arch=amd64 --variant=minbase bullseye ~/mydistro/chroot http://deb.debian.org/debian/</span></pre>
+                <p>Эта команда создаст минимальную установку Debian 11 "Bullseye". Вы можете заменить "bullseye" на другую версию Debian, такую как "bookworm" (Debian 12).</p>
+            </div>
+            
+            <div class="progress-step">
+                <div class="step-title">Шаг 2: Подготовка chroot-окружения</div>
+                <pre><span class="cmd">sudo mount --bind /dev ~/mydistro/chroot/dev
+sudo mount --bind /dev/pts ~/mydistro/chroot/dev/pts
+sudo mount --bind /proc ~/mydistro/chroot/proc
+sudo mount --bind /sys ~/mydistro/chroot/sys</span></pre>
+                <p>Эти команды монтируют необходимые системные директории в нашу chroot-среду.</p>
+            </div>
+            
+            <div class="progress-step">
+                <div class="step-title">Шаг 3: Вход в chroot-окружение</div>
+                <pre><span class="cmd">sudo chroot ~/mydistro/chroot /bin/bash</span></pre>
+                <p>Теперь вы находитесь внутри вашей новой системы и можете настраивать её как root.</p>
+            </div>
+        </div>
+        
+        <h3>Настройка основных компонентов</h3>
+        <p>Внутри chroot-окружения настроим основные компоненты системы:</p>
+        
+        <pre><span class="cmd"># Настройка имени хоста
+echo "mydistro" > /etc/hostname
+
+# Настройка источников пакетов
+cat > /etc/apt/sources.list << EOF
+deb http://deb.debian.org/debian bullseye main contrib non-free
+deb http://deb.debian.org/debian-security bullseye-security main contrib non-free
+deb http://deb.debian.org/debian bullseye-updates main contrib non-free
+EOF
+
+# Обновление системы
+apt update
+apt upgrade -y
+
+# Установка языковых пакетов и локалей
+apt install -y locales
+dpkg-reconfigure locales
+# В интерактивном меню выберите нужные локали, например, ru_RU.UTF-8
+# и установите её как локаль по умолчанию
+
+# Установка временной зоны
+apt install -y tzdata
+dpkg-reconfigure tzdata
+# Выберите свой регион и временную зону
+
+# Установка ядра и загрузчика
+apt install -y linux-image-amd64 live-boot systemd-sysv</span></pre>
+    </div>
+
+    <div class="container" id="customization">
+        <h2>4. Настройка и кастомизация</h2>
+        
+        <h3>Установка рабочего окружения</h3>
+        <p>Теперь установим графическое окружение. В зависимости от ваших предпочтений, вы можете выбрать одно из следующих:</p>
+        
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="openTab(event, 'gnome-desktop')">GNOME</button>
+            <button class="tab-button" onclick="openTab(event, 'kde-desktop')">KDE Plasma</button>
+            <button class="tab-button" onclick="openTab(event, 'xfce-desktop')">XFCE</button>
+            <button class="tab-button" onclick="openTab(event, 'minimal-desktop')">Минимальное</button>
+        </div>
+        
+        <div id="gnome-desktop" class="distro-tab active">
+            <pre><span class="cmd">apt install -y gnome-core gdm3 firefox-esr NetworkManager</span></pre>
+        </div>
+        
+        <div id="kde-desktop" class="distro-tab">
+            <pre><span class="cmd">apt install -y kde-standard sddm firefox-esr NetworkManager</span></pre>
+        </div>
+        
+        <div id="xfce-desktop" class="distro-tab">
+            <pre><span class="cmd">apt install -y xfce4 xfce4-goodies lightdm firefox-esr network-manager</span></pre>
+        </div>
+        
+        <div id="minimal-desktop" class="distro-tab">
+            <pre><span class="cmd">apt install -y xorg openbox lightdm tint2 nitrogen firefox-esr network-manager</span></pre>
+        </div>
+        
+        <h3>Установка дополнительного программного обеспечения</h3>
+        <p>Добавьте программное обеспечение, которое должно быть включено в ваш дистрибутив:</p>
+        
+        <pre><span class="cmd"># Базовые утилиты
+apt install -y sudo nano vim-tiny less file htop gdebi gparted synaptic apt-utils
+
+# Мультимедиа и офисные приложения
+apt install -y vlc gimp libreoffice-writer libreoffice-calc
+
+# Инструменты разработки (опционально)
+apt install -y git build-essential</span></pre>
+        
+        <h3>Настройка пользовательского окружения</h3>
+        <p>Создадим пользователя по умолчанию и настроим систему:</p>
+        
+        <pre><span class="cmd"># Создание пользователя
+adduser liveuser
+# Следуйте инструкциям для установки пароля и информации о пользователе
+
+# Добавление пользователя в группу sudo
+usermod -aG sudo liveuser
+
+# Настройка автоматического входа для live-системы
+mkdir -p /etc/systemd/system/getty@tty1.service.d/
+cat > /etc/systemd/system/getty@tty1.service.d/override.conf << EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin liveuser --noclear %I \$TERM
+EOF</span></pre>
+        
+        <div class="warning">
+            <p><strong>Внимание:</strong> Автоматический вход должен использоваться только для live-системы. В установленной системе это создаст угрозу безопасности.</p>
+        </div>
+    </div>
+
+    <div class="container" id="package-management">
+        <h2>5. Управление пакетами</h2>
+        
+        <h3>Создание собственного репозитория (опционально)</h3>
+        <p>Если вы хотите распространять собственные пакеты с вашим дистрибутивом, вы можете создать свой репозиторий:</p>
+        
+        <pre><span class="cmd"># Установка необходимых инструментов
+apt install -y reprepro gpg
+
+# Создание структуры репозитория
+mkdir -p /var/www/repos/apt/debian
+cd /var/www/repos/apt/debian
+
+# Создание ключа GPG для подписи пакетов
+gpg --gen-key
+# Следуйте инструкциям для создания ключа
+
+# Экспорт открытого ключа
+gpg --export -a "Ваше имя" > mydistro-key.asc</span></pre>
+        
+        <h3>Установка специфических пакетов</h3>
+        <p>Для создания действительно кастомного дистрибутива вы можете захотеть установить некоторые пакеты из других источников:</p>
+        
+        <pre><span class="cmd"># Добавление стороннего репозитория (пример для VSCode)
+wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg
+mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list
+
+apt update
+apt install -y code</span></pre>
+        
+        <h3>Создание метапакетов</h3>
+        <p>Метапакеты позволяют группировать несколько пакетов как единое целое, что упрощает установку и обновление:</p>
+        
+        <pre><span class="cmd"># Установка инструментов для создания пакетов
+apt install -y equivs
+
+# Создание конфигурации метапакета
+mkdir -p /tmp/metapackage
+cd /tmp/metapackage
+equivs-control mydistro-desktop.control
+
+# Редактирование файла конфигурации
+nano mydistro-desktop.control</span></pre>
+        
+        <p>Содержимое файла конфигурации:</p>
+        <pre>Section: metapackages
+Priority: optional
+Standards-Version: 3.9.2
+Package: mydistro-desktop
+Version: 1.0
+Maintainer: Ваше Имя <ваш.email@example.com>
+Depends: firefox-esr, libreoffice-writer, libreoffice-calc, vlc, gimp
+Description: Метапакет рабочего стола MyDistro
+ Этот метапакет устанавливает все необходимые компоненты
+ стандартного рабочего окружения MyDistro.
+</pre>
+        
+        <p>Затем создайте пакет:</p>
+        <pre><span class="cmd"># Создание пакета
+equivs-build mydistro-desktop.control
+
+# Установка пакета
+dpkg -i mydistro-desktop_1.0_all.deb
+apt install -f</span></pre>
+    </div>
+
+    <div class="container" id="branding">
+        <h2>6. Брендинг и визуальный стиль</h2>
+        
+        <h3>Создание темы оформления</h3>
+        <p>Для создания уникального внешнего вида вашего дистрибутива вы можете настроить темы оформления:</p>
+        
+        <pre><span class="cmd"># Установка инструментов для настройки тем
+apt install -y gtk2-engines-murrine gtk2-engines-pixbuf
+
+# Создание директории для тем
+mkdir -p /usr/share/themes/MyDistro
+# Здесь вы размещаете файлы вашей темы GTK</span></pre>
+        
+        <h3>Настройка Plymouth (экран загрузки)</h3>
+        <p>Plymouth отвечает за отображение графического экрана загрузки:</p>
+        
+        <pre><span class="cmd"># Установка Plymouth
+apt install -y plymouth plymouth-themes
+
+# Создание темы Plymouth
+mkdir -p /usr/share/plymouth/themes/mydistro
+
+# Создание конфигурационного файла темы
+cat > /usr/share/plymouth/themes/mydistro/mydistro.plymouth << EOF
+[Plymouth Theme]
+Name=MyDistro
+Description=MyDistro Boot Screen
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mydistro
+ScriptFile=/usr/share/plymouth/themes/mydistro/mydistro.script
+EOF
+
+# Создание скрипта Plymouth
+cat > /usr/share/plymouth/themes/mydistro/mydistro.script << EOF
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+EOF
+
+# Установка темы по умолчанию
+plymouth-set-default-theme -R mydistro</span></pre>
+        
+        <div class="note">
+            <p><strong>Примечание:</strong> Вам понадобится создать логотип (logo.png) для вашего дистрибутива и поместить его в директорию темы Plymouth.</p>
+        </div>
+        
+        <h3>Настройка обоев рабочего стола и логотипов</h3>
+        <p>Кастомизация рабочего стола:</p>
+        
+        <pre><span class="cmd"># Создание директории для обоев
+mkdir -p /usr/share/backgrounds/mydistro
+
+# Копирование изображений фона
+# (предполагается, что у вас есть файл wallpaper.jpg)
+cp /path/to/wallpaper.jpg /usr/share/backgrounds/mydistro/
+
+# Установка обоев по умолчанию
+if [ -d /etc/skel/.config ]; then
+    mkdir -p /etc/skel/.config
+fi</span></pre>
+        
+        <p>В зависимости от выбранного рабочего окружения, настройка обоев по умолчанию будет отличаться:</p>
+        
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="openTab(event, 'gnome-wallpaper')">GNOME</button>
+            <button class="tab-button" onclick="openTab(event, 'kde-wallpaper')">KDE Plasma</button>
+            <button class="tab-button" onclick="openTab(event, 'xfce-wallpaper')">XFCE</button>
+        </div>
+        
+        <div id="gnome-wallpaper" class="distro-tab active">
+            <pre><span class="cmd">apt install -y dconf-cli
+mkdir -p /etc/skel/.config/dconf
+cat > /etc/skel/.config/dconf/user.d/background.conf << EOF
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/mydistro/wallpaper.jpg'
+picture-options='stretched'
+EOF</span></pre>
+        </div>
+        
+        <div id="kde-wallpaper" class="distro-tab">
+            <pre><span class="cmd">mkdir -p /etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc
+cat > /etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc << EOF
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/backgrounds/mydistro/wallpaper.jpg
+EOF</span></pre>
+        </div>
+        
+        <div id="xfce-wallpaper" class="distro-tab">
+            <pre><span class="cmd">mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
+cat > /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-desktop" version="1.0">
+  <property name="backdrop" type="empty">
+    <property name="screen0" type="empty">
+      <property name="monitor0" type="empty">
+        <property name="image-path" type="string" value="/usr/share/backgrounds/mydistro/wallpaper.jpg"/>
+        <property name="image-style" type="int" value="5"/>
+      </property>
+    </property>
+  </property>
+</channel>
+EOF</span></pre>
+        </div>
+    </div>
+
+    <div class="container" id="iso-creation">
+        <h2>7. Создание ISO-образа</h2>
+        
+        <h3>Подготовка к созданию ISO</h3>
+        <p>Перед созданием ISO-образа нужно выполнить очистку и подготовку системы:</p>
+        
+        <pre><span class="cmd"># Очистка кэша apt
+apt clean
+
+# Удаление временных файлов
+rm -rf /tmp/*
+
+# Выход из chroot
+exit</span></pre>
+        
+        <h3>Создание squashfs</h3>
+        <p>Теперь создадим сжатый образ файловой системы:</p>
+        
+        <pre><span class="cmd"># Отмонтирование системных директорий
+sudo umount ~/mydistro/chroot/dev/pts
+sudo umount ~/mydistro/chroot/dev
+sudo umount ~/mydistro/chroot/proc
+sudo umount ~/mydistro/chroot/sys
+
+# Создание squashfs образа
+sudo mksquashfs ~/mydistro/chroot ~/mydistro/iso/live/filesystem.squashfs -comp xz -e boot</span></pre>
+        
+        <h3>Настройка загрузчика</h3>
+        <p>Настроим GRUB для загрузки нашего дистрибутива:</p>
+        
+        <pre><span class="cmd"># Копирование ядра и initrd из chroot
+sudo cp ~/mydistro/chroot/boot/vmlinuz-* ~/mydistro/iso/boot/vmlinuz
+sudo cp ~/mydistro/chroot/boot/initrd.img-* ~/mydistro/iso/boot/initrd
+
+# Настройка ISOLINUX
+sudo cp /usr/lib/ISOLINUX/isolinux.bin ~/mydistro/iso/isolinux/
+sudo cp /usr/lib/syslinux/modules/bios/*.c32 ~/mydistro/iso/isolinux/
+
+# Создание конфигурации isolinux
+cat > ~/mydistro/iso/isolinux/isolinux.cfg << EOF
+UI menu.c32
+PROMPT 0
+TIMEOUT 30
+DEFAULT mydistro
+
+LABEL mydistro
+  MENU LABEL Start MyDistro
+  LINUX /boot/vmlinuz
+  INITRD /boot/initrd
+  APPEND boot=live components quiet splash\n\nLABEL mydistro_nomodeset
+  MENU LABEL Start MyDistro (Safe Graphics)\n  LINUX /boot/vmlinuz\n  INITRD /boot/initrd\n  APPEND boot=live components quiet splash nomodeset\nEOF</span></pre>
+
+        <h3>Создание ISO-образа</h3>
+        <p>Теперь создадим загрузочный ISO-образ:</p>
+
+        <pre><span class="cmd"># Создание ISO образа
+sudo xorriso -as mkisofs -r \
+    -J -joliet-long \
+    -l -iso-level 3 \
+    -partition_offset 16 \
+    -publisher "MyDistro" \
+    -A "MyDistro Live" \
+    -b isolinux/isolinux.bin \
+    -c isolinux/boot.cat \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    -o ~/mydistro.iso \
+    ~/mydistro/iso/</span></pre>
+
+        <div class="note">
+            <p><strong>Примечание:</strong> После создания ISO-образа рекомендуется проверить его в виртуальной машине перед распространением.</p>
+        </div>
+    </div>
+
+    <div class="container" id="testing">
+        <h2>8. Тестирование</h2>
+
+        <h3>Тестирование в виртуальной машине</h3>
+        <p>Перед распространением важно тщательно протестировать ваш дистрибутив:</p>
+
+        <div class="progress-container">
+            <div class="progress-step">
+                <div class="step-title">Базовое тестирование</div>
+                <ul>
+                    <li>Проверка загрузки системы</li>
+                    <li>Тестирование работы сети</li>
+                    <li>Проверка графического интерфейса</li>
+                    <li>Тестирование установленных приложений</li>
+                </ul>
+            </div>
+
+            <div class="progress-step">
+                <div class="step-title">Расширенное тестирование</div>
+                <ul>
+                    <li>Проверка обновления системы</li>
+                    <li>Тестирование установки дополнительных пакетов</li>
+                    <li>Проверка работы с различными видами оборудования</li>
+                    <li>Тестирование локализации</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="warning">
+            <p><strong>Внимание:</strong> Убедитесь, что вы протестировали все сценарии использования, особенно в режиме Live и после установки на жёсткий диск.</p>
+        </div>
+    </div>
+
+    <div class="container" id="distribution">
+        <h2>9. Распространение</h2>
+
+        <h3>Подготовка к распространению</h3>
+        <p>Перед распространением вашего дистрибутива:</p>
+        <ul>
+            <li>Создайте контрольные суммы ISO-образа</li>
+            <li>Подготовьте документацию</li>
+            <li>Создайте веб-сайт для дистрибутива</li>
+            <li>Настройте систему отслеживания ошибок</li>
+        </ul>
+
+        <pre><span class="cmd"># Создание контрольных сумм
+cd ~/
+md5sum mydistro.iso > mydistro.iso.md5
+sha256sum mydistro.iso > mydistro.iso.sha256</span></pre>
+
+        <h3>Создание документации</h3>
+        <pre><span class="cmd"># Создание директории для документации
+mkdir -p ~/mydistro-docs
+cat > ~/mydistro-docs/README.md << EOF
+# MyDistro Linux
+
+## О дистрибутиве
+MyDistro - это кастомный дистрибутив на базе Debian, созданный для...
+
+## Системные требования
+- Процессор: 64-bit x86
+- ОЗУ: минимум 2 ГБ
+- Место на диске: минимум 20 ГБ
+
+## Установка
+1. Загрузите ISO-образ
+2. Создайте загрузочный USB-накопитель
+3. Загрузитесь с USB и следуйте инструкциям
+
+## Поддержка
+Если у вас возникли проблемы, посетите наш форум поддержки...
+EOF</span></pre>
+    </div>
+
+    <div class="container" id="maintenance">
+        <h2>10. Поддержка и обновление</h2>
+
+        <h3>План поддержки</h3>
+        <p>Разработайте план поддержки вашего дистрибутива:</p>
+        <ul>
+            <li>Регулярное обновление пакетов безопасности</li>
+            <li>Выпуск обновлений системы</li>
+            <li>Поддержка пользователей через форум или систему тикетов</li>
+            <li>Документирование известных проблем и их решений</li>
+        </ul>
+
+        <h3>Автоматизация обновлений</h3>
+        <pre><span class="cmd"># Создание скрипта для сборки обновлённого ISO
+cat > ~/update-iso.sh << EOF
+#!/bin/bash
+
+# Обновление пакетов в chroot
+sudo chroot ~/mydistro/chroot apt update
+sudo chroot ~/mydistro/chroot apt upgrade -y
+
+# Очистка
+sudo chroot ~/mydistro/chroot apt clean
+sudo chroot ~/mydistro/chroot rm -rf /tmp/*
+
+# Создание нового squashfs
+sudo mksquashfs ~/mydistro/chroot ~/mydistro/iso/live/filesystem.squashfs -comp xz -e boot
+
+# Создание нового ISO
+sudo xorriso -as mkisofs -r \
+    -J -joliet-long \
+    -l -iso-level 3 \
+    -partition_offset 16 \
+    -publisher "MyDistro" \
+    -A "MyDistro Live" \
+    -b isolinux/isolinux.bin \
+    -c isolinux/boot.cat \
+    -no-emul-boot \
+    -boot-load-size 4 \
+    -boot-info-table \
+    -o ~/mydistro-\$(date +%Y%m%d).iso \
+    ~/mydistro/iso/
+EOF
+
+chmod +x ~/update-iso.sh</span></pre>
+
+        <div class="note">
+            <p><strong>Совет:</strong> Создайте автоматизированный процесс сборки и тестирования для упрощения выпуска обновлений.</p>
+        </div>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            let i, tabcontent, tablinks;
+            
+            tabcontent = document.getElementsByClassName("distro-tab");
+            for (i = 0; i < tabcontent.length; i++) {
+                tabcontent[i].style.display = "none";
+            }
+            
+            tablinks = document.getElementsByClassName("tab-button");
+            for (i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(" active", "");
+            }
+            
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.className += " active";
+        }
+    </script>
+</body>
+</html>
