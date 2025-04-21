@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Создание собственного дистрибутива на базе Arch Linux</title>
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1, h2, h3, h4 {
+            color: #bb86fc;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #3700b3;
+        }
+        h2 {
+            margin-top: 30px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #3700b3;
+        }
+        .container {
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        code {
+            font-family: 'Courier New', monospace;
+            background-color: #2d2d2d;
+            color: #03dac6;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+        pre {
+            background-color: #2d2d2d;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .cmd {
+            color: #cf6679;
+            font-weight: bold;
+        }
+        .note {
+            background-color: #31263e;
+            border-left: 4px solid #bb86fc;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        .warning {
+            background-color: #3e2723;
+            border-left: 4px solid #ff7043;
+            padding: 10px 15px;
+            margin: 20px 0;
+        }
+        .toc {
+            background-color: #262626;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .toc ul {
+            list-style-type: none;
+            padding-left: 15px;
+        }
+        .toc li {
+            margin-bottom: 5px;
+        }
+        a {
+            color: #03dac6;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Создание собственного дистрибутива на базе Arch Linux</h1>
+
+    <div class="container">
+        <p>В этом руководстве мы пройдем через процесс создания собственного дистрибутива на базе Arch Linux. Arch предоставляет отличную основу для создания минималистичного и полностью настраиваемого дистрибутива.</p>
+    </div>
+
+    <div class="toc">
+        <h3>Содержание</h3>
+        <ul>
+            <li><a href="#prerequisites">1. Предварительные требования</a></li>
+            <li><a href="#preparation">2. Подготовка рабочей среды</a></li>
+            <li><a href="#base-system">3. Создание базовой системы</a></li>
+            <li><a href="#customization">4. Настройка и кастомизация</a></li>
+            <li><a href="#packages">5. Управление пакетами</a></li>
+            <li><a href="#branding">6. Брендинг</a></li>
+            <li><a href="#iso">7. Создание ISO-образа</a></li>
+            <li><a href="#testing">8. Тестирование</a></li>
+            <li><a href="#distribution">9. Распространение</a></li>
+        </ul>
+    </div>
+
+    <div class="container" id="prerequisites">
+        <h2>1. Предварительные требования</h2>
+        
+        <h3>Системные требования</h3>
+        <ul>
+            <li>Действующая система Arch Linux</li>
+            <li>Минимум 8 ГБ оперативной памяти</li>
+            <li>Минимум 50 ГБ свободного места на диске</li>
+            <li>Процессор x86_64</li>
+            <li>Стабильное подключение к интернету</li>
+        </ul>
+
+        <h3>Необходимые знания</h3>
+        <ul>
+            <li>Базовое понимание Linux и командной строки</li>
+            <li>Знание принципов работы Arch Linux</li>
+            <li>Базовые навыки работы с системой сборки пакетов</li>
+        </ul>
+    </div>
+
+    <div class="container" id="preparation">
+        <h2>2. Подготовка рабочей среды</h2>
+
+        <h3>Установка необходимых инструментов</h3>
+        <pre><span class="cmd"># Установка базовых инструментов
+sudo pacman -S archiso arch-install-scripts mkinitcpio squashfs-tools git base-devel</span></pre>
+
+        <h3>Создание рабочей директории</h3>
+        <pre><span class="cmd"># Создание директории проекта
+mkdir -p ~/archdistro
+cd ~/archdistro
+
+# Копирование профиля releng
+cp -r /usr/share/archiso/configs/releng/ work/</span></pre>
+
+        <div class="note">
+            <p><strong>Примечание:</strong> Профиль releng - это стандартный профиль для создания установочного образа Arch Linux. Мы будем использовать его как основу.</p>
+        </div>
+    </div>
+
+    <div class="container" id="base-system">
+        <h2>3. Создание базовой системы</h2>
+
+        <h3>Настройка базовой конфигурации</h3>
+        <pre><span class="cmd"># Переход в рабочую директорию
+cd ~/archdistro/work
+
+# Редактирование списка пакетов
+nano packages.x86_64</span></pre>
+
+        <p>Базовые пакеты, которые рекомендуется включить:</p>
+        <pre>
+# Базовая система
+base
+base-devel
+linux
+linux-firmware
+
+# Сетевые утилиты
+networkmanager
+network-manager-applet
+wireless_tools
+wpa_supplicant
+
+# Системные утилиты
+sudo
+nano
+vim
+git
+wget
+curl
+
+# Графический интерфейс
+xorg
+xorg-server
+xorg-xinit</pre>
+
+        <h3>Настройка установщика</h3>
+        <pre><span class="cmd"># Создание кастомного установщика
+mkdir -p ~/archdistro/work/airootfs/root/
+cat > ~/archdistro/work/airootfs/root/customize_airootfs.sh << 'EOF'
+#!/bin/bash
+
+# Установка часового пояса
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+# Настройка локали
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+# Настройка hostname
+echo "mydistro" > /etc/hostname
+
+# Настройка hosts
+echo "127.0.0.1 localhost" > /etc/hosts
+echo "::1       localhost" >> /etc/hosts
+echo "127.0.1.1 mydistro.localdomain mydistro" >> /etc/hosts
+
+# Создание пользователя
+useradd -m -g users -G wheel -s /bin/bash liveuser
+echo "liveuser:liveuser" | chpasswd
+echo "root:root" | chpasswd
+
+# Настройка sudo
+echo "%wheel ALL=(ALL) ALL" > /etc/sudoers.d/wheel
+
+# Включение необходимых сервисов
+systemctl enable NetworkManager
+systemctl enable sddm # если используете KDE
+EOF
+
+chmod +x ~/archdistro/work/airootfs/root/customize_airootfs.sh</span></pre>
+    </div>
+
+    <div class="container" id="customization">
+        <h2>4. Настройка и кастомизация</h2>
+
+        <h3>Установка рабочего окружения</h3>
+        <p>Добавьте нужные пакеты в packages.x86_64:</p>
+
+        <pre>
+# KDE Plasma
+plasma
+plasma-desktop
+plasma-wayland-session
+kde-applications
+
+# или XFCE
+xfce4
+xfce4-goodies
+lightdm
+lightdm-gtk-greeter
+
+# или GNOME
+gnome
+gnome-extra
+gdm</pre>
+
+        <h3>Настройка автологина</h3>
+        <pre><span class="cmd"># Для SDDM (KDE)
+mkdir -p ~/archdistro/work/airootfs/etc/sddm.conf.d/
+cat > ~/archdistro/work/airootfs/etc/sddm.conf.d/autologin.conf << EOF
+[Autologin]
+User=liveuser
+Session=plasma
+EOF</span></pre>
+
+        <div class="warning">
+            <p><strong>Внимание:</strong> Автологин следует использовать только для live-системы.</p>
+        </div>
+    </div>
+
+    <div class="container" id="packages">
+        <h2>5. Управление пакетами</h2>
+
+        <h3>Создание собственного репозитория</h3>
+        <pre><span class="cmd"># Создание директории репозитория
+mkdir -p ~/archdistro/repo
+cd ~/archdistro/repo
+
+# Создание базы данных репозитория
+repo-add custom.db.tar.gz</span></pre>
+
+        <h3>Сборка пакетов</h3>
+        <pre><span class="cmd"># Клонирование PKGBUILD
+git clone https://aur.archlinux.org/package-name.git
+cd package-name
+
+# Сборка пакета
+makepkg -s
+
+# Добавление в репозиторий
+repo-add ../custom.db.tar.gz *.pkg.tar.zst</span></pre>
+
+        <div class="note">
+            <p><strong>Совет:</strong> Создайте метапакет для группировки всех ваших кастомных пакетов.</p>
+        </div>
+    </div>
+
+    <div class="container" id="branding">
+        <h2>6. Брендинг</h2>
+
+        <h3>Создание темы Plymouth</h3>
+        <pre><span class="cmd"># Установка Plymouth
+pacman -S plymouth
+
+# Создание темы
+mkdir -p ~/archdistro/work/airootfs/usr/share/plymouth/themes/mydistro
+cd ~/archdistro/work/airootfs/usr/share/plymouth/themes/mydistro
+
+# Создание конфигурации темы
+cat > mydistro.plymouth << EOF
+[Plymouth Theme]
+Name=MyDistro
+Description=Custom theme for MyDistro
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mydistro
+ScriptFile=/usr/share/plymouth/themes/mydistro/mydistro.script
+EOF</span></pre>
+
+        <h3>Настройка обоев рабочего стола</h3>
+        <pre><span class="cmd"># Создание директории для обоев
+mkdir -p ~/archdistro/work/airootfs/usr/share/backgrounds/mydistro
+
+# Копирование обоев
+cp wallpaper.jpg ~/archdistro/work/airootfs/usr/share/backgrounds/mydistro/</span></pre>
+    </div>
+
+    <div class="container" id="iso">
+        <h2>7. Создание ISO-образа</h2>
+
+        <pre><span class="cmd"># Создание ISO
+cd ~/archdistro/work
+mkarchiso -v -w /tmp/archiso-tmp -o ~/archdistro/out .</span></pre>
+
+        <div class="note">
+            <p><strong>Примечание:</strong> Процесс создания ISO может занять значительное время, зависящее от конфигурации системы и количества включенных пакетов.</p>
+        </div>
+    </div>
+
+    <div class="container" id="testing">
+        <h2>8. Тестирование</h2>
+
+        <h3>Проверка ISO</h3>
+        <pre><span class="cmd"># Создание контрольных сумм
+cd ~/archdistro/out
+sha256sum *.iso > sha256sums.txt
+
+# Тестирование в QEMU
+qemu-system-x86_64 -boot d -cdrom mydistro-*.iso -m 2048</span></pre>
+
+        <div class="warning">
+            <p><strong>Внимание:</strong> Обязательно проведите тестирование на реальном оборудовании перед выпуском.</p>
+        </div>
+    </div>
+
+    <div class="container" id="distribution">
+        <h2>9. Распространение</h2>
+
+        <h3>Подготовка к релизу</h3>
+        <ul>
+            <li>Создайте документацию</li>
+            <li>Подготовьте список изменений</li>
+            <li>Проверьте лицензии всех включенных компонентов</li>
+            <li>Создайте веб-сайт дистрибутива</li>
+            <li>Настройте систему отслеживания ошибок</li>
+        </ul>
+
+        <pre><span class="cmd"># Создание архива с исходным кодом
+cd ~/archdistro
+git init
+git add .
+git commit -m "Initial release"
+git archive --format=tar.gz --output=mydistro-source-1.0.tar.gz master</span></pre>
+    </div>
+</body>
+</html>
