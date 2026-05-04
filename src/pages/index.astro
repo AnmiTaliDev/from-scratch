@@ -1,0 +1,145 @@
+---
+// SPDX-FileCopyrightText: 2026 AnmiTaliDev <anmitalidev@nuros.org>
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import BaseLayout from "@layouts/BaseLayout.astro";
+import GuideCard from "@components/GuideCard.astro";
+---
+
+<BaseLayout title="From Scratch" description="Open-source guides for building operating systems and firmware from the ground up.">
+  <div class="hero-section">
+    <div class="hero-inner">
+      <div class="hero-badge">Open Source</div>
+      <h1 class="hero-title">Build systems<br /><span class="hero-accent">from scratch</span></h1>
+      <p class="hero-desc">
+        Practical, in-depth guides for building operating systems, Linux
+        distributions, and firmware. Minimal approach to mastering complex
+        systems engineering.
+      </p>
+    </div>
+  </div>
+
+  <div class="guides-section">
+    <div class="guides-inner">
+      <h2 class="section-label">Guides</h2>
+      <div class="guides-grid">
+        <GuideCard
+          href="/android-firmware"
+          title="AOSP Firmware"
+          description="Build a custom Android firmware based on AOSP. From environment setup to flashing a finished image on a real device."
+          difficulty="Expert"
+          icon="&#x1F4F1;"
+        />
+        <GuideCard
+          href="/debian-distro"
+          title="Debian Distribution"
+          description="Create a custom Linux distribution based on Debian. Covers package management, branding, and generating a bootable ISO."
+          difficulty="Intermediate"
+          icon="&#x1F427;"
+        />
+        <GuideCard
+          href="/arch-distro"
+          title="Arch Distribution"
+          description="Build a minimal, fully customized distribution from Arch Linux. Maximum control over every component of the system."
+          difficulty="Advanced"
+          icon="&#x26A1;"
+        />
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .hero-section {
+    border-bottom: 1px solid var(--border);
+    padding: 5rem 1.5rem 4rem;
+  }
+
+  .hero-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    padding: 0.25rem 0.75rem;
+    border-radius: 100px;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-badge::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+
+  .hero-title {
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-accent {
+    color: var(--accent);
+  }
+
+  .hero-desc {
+    font-size: 1.125rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  .guides-section {
+    padding: 3rem 1.5rem;
+  }
+
+  .guides-inner {
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 1.5rem;
+  }
+
+  .guides-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+
+  @media (max-width: 900px) {
+    .guides-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-section {
+      padding: 3.5rem 1rem 3rem;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .guides-section {
+      padding: 2rem 1rem;
+    }
+  }
+</style>

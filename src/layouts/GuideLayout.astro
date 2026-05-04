@@ -1,0 +1,193 @@
+---
+// SPDX-FileCopyrightText: 2026 AnmiTaliDev <anmitalidev@nuros.org>
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import BaseLayout from "./BaseLayout.astro";
+
+interface TocItem {
+  id: string;
+  label: string;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  difficulty: string;
+  toc: TocItem[];
+}
+
+const { title, description, difficulty, toc } = Astro.props;
+---
+
+<BaseLayout title={`${title} — From Scratch`} description={description}>
+  <div class="guide-wrapper">
+    <aside class="toc-sidebar">
+      <div class="toc-sticky">
+        <p class="toc-label">On this page</p>
+        <nav class="toc-nav">
+          {toc.map((item) => (
+            <a href={`#${item.id}`} class="toc-link">{item.label}</a>
+          ))}
+        </nav>
+      </div>
+    </aside>
+
+    <article class="guide-content">
+      <header class="guide-header">
+        <span class="guide-difficulty">{difficulty}</span>
+        <h1 class="guide-title">{title}</h1>
+        <p class="guide-description">{description}</p>
+      </header>
+
+      <div class="guide-body">
+        <slot />
+      </div>
+    </article>
+  </div>
+</BaseLayout>
+
+<style>
+  .guide-wrapper {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 6rem;
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 4rem;
+    align-items: start;
+  }
+
+  .toc-sidebar {
+    display: block;
+  }
+
+  .toc-sticky {
+    position: sticky;
+    top: 80px;
+  }
+
+  .toc-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .toc-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+  }
+
+  .toc-link {
+    font-size: 0.8125rem;
+    color: var(--text-muted);
+    padding: 0.3rem 0.5rem;
+    border-radius: var(--radius-sm);
+    transition: color var(--transition), background var(--transition);
+    line-height: 1.4;
+  }
+
+  .toc-link:hover {
+    color: var(--text-primary);
+    background: var(--bg-surface);
+  }
+
+  .guide-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .guide-difficulty {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--accent);
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+  }
+
+  .guide-title {
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+  }
+
+  .guide-description {
+    font-size: 1.0625rem;
+    color: var(--text-secondary);
+    line-height: 1.65;
+    max-width: 640px;
+  }
+
+  .guide-body :global(h2) {
+    font-size: 1.375rem;
+    font-weight: 600;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    scroll-margin-top: 80px;
+  }
+
+  .guide-body :global(h3) {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin: 1.75rem 0 0.75rem;
+    color: var(--text-primary);
+    scroll-margin-top: 80px;
+  }
+
+  .guide-body :global(h4) {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.5rem;
+    color: var(--text-secondary);
+  }
+
+  .guide-body :global(p) {
+    margin-bottom: 1rem;
+    line-height: 1.7;
+  }
+
+  .guide-body :global(ul),
+  .guide-body :global(ol) {
+    margin-bottom: 1rem;
+  }
+
+  .guide-body :global(pre) {
+    margin: 1.25rem 0;
+  }
+
+  .guide-body :global(.note),
+  .guide-body :global(.warning) {
+    margin: 1.25rem 0;
+  }
+
+  .guide-body :global(section) {
+    margin-bottom: 2rem;
+  }
+
+  @media (max-width: 900px) {
+    .guide-wrapper {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    .toc-sidebar {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .guide-wrapper {
+      padding: 2rem 1rem 4rem;
+    }
+  }
+</style>

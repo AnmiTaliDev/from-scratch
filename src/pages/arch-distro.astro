@@ -1,0 +1,282 @@
+---
+// SPDX-FileCopyrightText: 2026 AnmiTaliDev <anmitalidev@nuros.org>
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import GuideLayout from "@layouts/GuideLayout.astro";
+import Note from "@components/Note.astro";
+import Warning from "@components/Warning.astro";
+
+const toc = [
+  { id: "prerequisites", label: "Prerequisites" },
+  { id: "preparation", label: "Preparation" },
+  { id: "base-system", label: "Base system" },
+  { id: "customization", label: "Customization" },
+  { id: "packages", label: "Package management" },
+  { id: "branding", label: "Branding" },
+  { id: "iso", label: "Building the ISO" },
+  { id: "testing", label: "Testing" },
+  { id: "distribution", label: "Distribution" },
+];
+---
+
+<GuideLayout
+  title="Arch Distribution"
+  description="Build a minimal, fully customized Linux distribution from Arch Linux. Maximum control over every component — from the package list to the ISO profile."
+  difficulty="Advanced"
+  toc={toc}
+>
+  <section id="prerequisites">
+    <h2>Prerequisites</h2>
+
+    <h3>System requirements</h3>
+    <ul>
+      <li>A working Arch Linux installation</li>
+      <li>8 GB RAM minimum</li>
+      <li>50 GB free disk space</li>
+      <li>x86_64 processor</li>
+      <li>Stable internet connection</li>
+    </ul>
+
+    <h3>Required knowledge</h3>
+    <ul>
+      <li>Comfortable with Linux command line</li>
+      <li>Familiarity with Arch Linux internals and pacman</li>
+      <li>Basic understanding of the Arch Build System (ABS)</li>
+    </ul>
+  </section>
+
+  <section id="preparation">
+    <h2>Preparation</h2>
+
+    <h3>Install required tools</h3>
+    <pre><code>sudo pacman -S archiso arch-install-scripts mkinitcpio squashfs-tools git base-devel</code></pre>
+
+    <h3>Create the working directory</h3>
+    <pre><code>mkdir -p ~/archdistro
+cd ~/archdistro
+
+cp -r /usr/share/archiso/configs/releng/ work/</code></pre>
+    <Note>
+      <strong>Note:</strong> The <code>releng</code> profile is the base used to build the
+      official Arch Linux installation image. It is a solid starting point for a custom distro.
+    </Note>
+  </section>
+
+  <section id="base-system">
+    <h2>Base system</h2>
+
+    <h3>Edit the package list</h3>
+    <pre><code>cd ~/archdistro/work
+nano packages.x86_64</code></pre>
+
+    <p>Recommended base packages:</p>
+    <pre><code># Base
+base
+base-devel
+linux
+linux-firmware
+
+# Networking
+networkmanager
+network-manager-applet
+wireless_tools
+wpa_supplicant
+
+# System utilities
+sudo
+nano
+vim
+git
+wget
+curl
+
+# Xorg
+xorg
+xorg-server
+xorg-xinit</code></pre>
+
+    <h3>Create the customization script</h3>
+    <pre><code>mkdir -p ~/archdistro/work/airootfs/root/
+cat &gt; ~/archdistro/work/airootfs/root/customize_airootfs.sh &lt;&lt; 'EOF'
+#!/bin/bash
+
+ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+echo "en_US.UTF-8 UTF-8" &gt;&gt; /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" &gt; /etc/locale.conf
+
+echo "mydistro" &gt; /etc/hostname
+echo "127.0.0.1 localhost" &gt; /etc/hosts
+echo "::1       localhost" &gt;&gt; /etc/hosts
+echo "127.0.1.1 mydistro.localdomain mydistro" &gt;&gt; /etc/hosts
+
+useradd -m -g users -G wheel -s /bin/bash liveuser
+echo "liveuser:liveuser" | chpasswd
+echo "root:root" | chpasswd
+echo "%wheel ALL=(ALL) ALL" &gt; /etc/sudoers.d/wheel
+
+systemctl enable NetworkManager
+EOF
+
+chmod +x ~/archdistro/work/airootfs/root/customize_airootfs.sh</code></pre>
+  </section>
+
+  <section id="customization">
+    <h2>Customization</h2>
+
+    <h3>Add a desktop environment</h3>
+    <p>Append packages to <code>packages.x86_64</code>:</p>
+
+    <h4>KDE Plasma</h4>
+    <pre><code>plasma
+plasma-desktop
+plasma-wayland-session
+kde-applications</code></pre>
+
+    <h4>XFCE</h4>
+    <pre><code>xfce4
+xfce4-goodies
+lightdm
+lightdm-gtk-greeter</code></pre>
+
+    <h4>GNOME</h4>
+    <pre><code>gnome
+gnome-extra
+gdm</code></pre>
+
+    <h3>Configure autologin (live session only)</h3>
+
+    <h4>SDDM (KDE)</h4>
+    <pre><code>mkdir -p ~/archdistro/work/airootfs/etc/sddm.conf.d/
+cat &gt; ~/archdistro/work/airootfs/etc/sddm.conf.d/autologin.conf &lt;&lt; EOF
+[Autologin]
+User=liveuser
+Session=plasma
+EOF</code></pre>
+    <Warning>
+      <strong>Warning:</strong> Autologin is only appropriate for the live environment.
+    </Warning>
+  </section>
+
+  <section id="packages">
+    <h2>Package management</h2>
+
+    <h3>Create a custom repository</h3>
+    <pre><code>mkdir -p ~/archdistro/repo
+cd ~/archdistro/repo
+
+repo-add custom.db.tar.gz</code></pre>
+
+    <h3>Build and add packages</h3>
+    <pre><code>git clone https://aur.archlinux.org/package-name.git
+cd package-name
+
+makepkg -s
+
+repo-add ../custom.db.tar.gz *.pkg.tar.zst</code></pre>
+    <Note>
+      <strong>Tip:</strong> Create a meta-package to group all your custom packages into a single
+      installable unit.
+    </Note>
+
+    <h3>Reference the custom repo in the profile</h3>
+    <p>Add to <code>~/archdistro/work/pacman.conf</code>:</p>
+    <pre><code>[custom]
+SigLevel = Optional TrustAll
+Server = file:///home/user/archdistro/repo</code></pre>
+  </section>
+
+  <section id="branding">
+    <h2>Branding</h2>
+
+    <h3>Plymouth boot theme</h3>
+    <pre><code>sudo pacman -S plymouth
+
+mkdir -p ~/archdistro/work/airootfs/usr/share/plymouth/themes/mydistro
+cd ~/archdistro/work/airootfs/usr/share/plymouth/themes/mydistro
+
+cat &gt; mydistro.plymouth &lt;&lt; EOF
+[Plymouth Theme]
+Name=MyDistro
+Description=Custom boot screen for MyDistro
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mydistro
+ScriptFile=/usr/share/plymouth/themes/mydistro/mydistro.script
+EOF</code></pre>
+
+    <h3>Default wallpaper</h3>
+    <pre><code>mkdir -p ~/archdistro/work/airootfs/usr/share/backgrounds/mydistro
+cp wallpaper.jpg ~/archdistro/work/airootfs/usr/share/backgrounds/mydistro/</code></pre>
+
+    <h3>Custom bootloader entry</h3>
+    <p>Edit <code>~/archdistro/work/efiboot/loader/entries/01-archiso-x86_64-linux.conf</code>:</p>
+    <pre><code>title   MyDistro Linux
+linux   /arch/boot/x86_64/vmlinuz-linux
+initrd  /arch/boot/x86_64/initramfs-linux.img
+options archisobasedir=arch archisolabel=%ARCHISO_LABEL% quiet splash</code></pre>
+  </section>
+
+  <section id="iso">
+    <h2>Building the ISO</h2>
+
+    <pre><code>cd ~/archdistro/work
+sudo mkarchiso -v -w /tmp/archiso-tmp -o ~/archdistro/out .</code></pre>
+    <Note>
+      <strong>Note:</strong> ISO generation can take a long time depending on the number of
+      packages included and the speed of your internet connection.
+    </Note>
+
+    <h3>Verify the output</h3>
+    <pre><code>cd ~/archdistro/out
+sha256sum *.iso &gt; sha256sums.txt</code></pre>
+  </section>
+
+  <section id="testing">
+    <h2>Testing</h2>
+
+    <h3>Test in QEMU</h3>
+    <pre><code>qemu-system-x86_64 -boot d -cdrom ~/archdistro/out/mydistro-*.iso -m 2048</code></pre>
+    <Warning>
+      <strong>Warning:</strong> Always test on real hardware before a public release. VM behavior
+      can differ from bare metal, especially for hardware-specific drivers and UEFI boot.
+    </Warning>
+
+    <h3>Testing checklist</h3>
+    <ul>
+      <li>Live boot succeeds</li>
+      <li>Networking and Wi-Fi work</li>
+      <li>Desktop environment launches</li>
+      <li>Package manager (<code>pacman</code>) is functional</li>
+      <li>UEFI and legacy BIOS boot both work</li>
+    </ul>
+  </section>
+
+  <section id="distribution">
+    <h2>Distribution</h2>
+
+    <h3>Prepare the release</h3>
+    <ul>
+      <li>Write documentation and a changelog</li>
+      <li>Verify licenses of all included packages</li>
+      <li>Publish ISO and checksums to a reliable mirror</li>
+      <li>Set up a bug tracker and community forum</li>
+    </ul>
+
+    <h3>Archive the source config</h3>
+    <pre><code>cd ~/archdistro
+git init
+git add .
+git commit -m "feat: initial distro release"
+git archive --format=tar.gz --output=mydistro-source-1.0.tar.gz HEAD</code></pre>
+
+    <h3>Automate future builds</h3>
+    <p>
+      Once your profile is stable, set up CI to rebuild the ISO automatically whenever packages
+      are updated. Jenkins, GitHub Actions, and GitLab CI all integrate well with
+      <code>mkarchiso</code>.
+    </p>
+  </section>
+</GuideLayout>

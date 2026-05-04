@@ -1,0 +1,399 @@
+---
+// SPDX-FileCopyrightText: 2026 AnmiTaliDev <anmitalidev@nuros.org>
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import GuideLayout from "@layouts/GuideLayout.astro";
+import Note from "@components/Note.astro";
+import Warning from "@components/Warning.astro";
+
+const toc = [
+  { id: "introduction", label: "Introduction" },
+  { id: "preparation", label: "Preparation" },
+  { id: "base-system", label: "Base system" },
+  { id: "customization", label: "Customization" },
+  { id: "package-management", label: "Package management" },
+  { id: "branding", label: "Branding" },
+  { id: "iso-creation", label: "Building the ISO" },
+  { id: "testing", label: "Testing" },
+  { id: "distribution", label: "Distribution" },
+];
+---
+
+<GuideLayout
+  title="Debian Distribution"
+  description="Step-by-step guide to building a custom Linux distribution based on Debian. Covers debootstrap, package management, branding, and generating a bootable ISO image."
+  difficulty="Intermediate"
+  toc={toc}
+>
+  <section id="introduction">
+    <h2>Introduction</h2>
+    <p>
+      Building your own Linux distribution lets you create an operating system tailored to your
+      exact needs. Debian is an excellent base: proven stability, over 50,000 packages, strict
+      quality control, and a large community.
+    </p>
+    <Note>
+      <strong>Note:</strong> This guide assumes basic familiarity with Linux and the command line.
+    </Note>
+
+    <h3>Why Debian as a base?</h3>
+    <ul>
+      <li>Years of proven stability and reliability</li>
+      <li>Massive package repository (50,000+ packages)</li>
+      <li>Rigorous quality control process</li>
+      <li>Excellent documentation and active community</li>
+      <li>Flexible configuration and adaptation</li>
+    </ul>
+  </section>
+
+  <section id="preparation">
+    <h2>Preparation</h2>
+
+    <h3>System requirements</h3>
+    <ul>
+      <li>A Linux machine (Debian or Ubuntu preferred)</li>
+      <li>4 GB RAM minimum (8 GB recommended)</li>
+      <li>20 GB free disk space</li>
+      <li>Stable internet connection</li>
+    </ul>
+
+    <h3>Install required tools</h3>
+
+    <h4>Debian / Ubuntu</h4>
+    <pre><code>sudo apt update
+sudo apt install debootstrap squashfs-tools xorriso isolinux \
+  syslinux-common grub-pc-bin grub-efi-amd64-bin mtools \
+  live-build cdebootstrap</code></pre>
+
+    <h4>Fedora</h4>
+    <pre><code>sudo dnf update
+sudo dnf install debootstrap squashfs-tools xorriso syslinux \
+  grub2 mtools genisoimage</code></pre>
+
+    <h4>Arch Linux</h4>
+    <pre><code>sudo pacman -Syu
+sudo pacman -S debootstrap squashfs-tools libisoburn syslinux grub mtools</code></pre>
+
+    <h3>Create the working directory</h3>
+    <pre><code>mkdir -p ~/mydistro/&#123;chroot,iso/&#123;boot,isolinux,live&#125;&#125;
+cd ~/mydistro</code></pre>
+    <Note>
+      <strong>Tip:</strong> Track your configuration files with Git from the start.
+    </Note>
+  </section>
+
+  <section id="base-system">
+    <h2>Base system</h2>
+    <p>Use <code>debootstrap</code> to install a minimal Debian base into a chroot directory.</p>
+
+    <h3>Step 1: Bootstrap the base</h3>
+    <pre><code>sudo debootstrap --arch=amd64 --variant=minbase bullseye \
+  ~/mydistro/chroot http://deb.debian.org/debian/</code></pre>
+    <p>
+      Replace <code>bullseye</code> with <code>bookworm</code> for Debian 12 or any other
+      supported release codename.
+    </p>
+
+    <h3>Step 2: Mount system directories</h3>
+    <pre><code>sudo mount --bind /dev     ~/mydistro/chroot/dev
+sudo mount --bind /dev/pts ~/mydistro/chroot/dev/pts
+sudo mount --bind /proc    ~/mydistro/chroot/proc
+sudo mount --bind /sys     ~/mydistro/chroot/sys</code></pre>
+
+    <h3>Step 3: Enter the chroot</h3>
+    <pre><code>sudo chroot ~/mydistro/chroot /bin/bash</code></pre>
+
+    <h3>Configure the base system</h3>
+    <p>Run inside the chroot:</p>
+    <pre><code>echo "mydistro" &gt; /etc/hostname
+
+cat &gt; /etc/apt/sources.list &lt;&lt; EOF
+deb http://deb.debian.org/debian bullseye main contrib non-free
+deb http://deb.debian.org/debian-security bullseye-security main contrib non-free
+deb http://deb.debian.org/debian bullseye-updates main contrib non-free
+EOF
+
+apt update
+apt upgrade -y
+
+apt install -y locales tzdata
+dpkg-reconfigure locales
+dpkg-reconfigure tzdata
+
+apt install -y linux-image-amd64 live-boot systemd-sysv</code></pre>
+  </section>
+
+  <section id="customization">
+    <h2>Customization</h2>
+
+    <h3>Install a desktop environment</h3>
+
+    <h4>GNOME</h4>
+    <pre><code>apt install -y gnome-core gdm3 firefox-esr NetworkManager</code></pre>
+
+    <h4>KDE Plasma</h4>
+    <pre><code>apt install -y kde-standard sddm firefox-esr NetworkManager</code></pre>
+
+    <h4>XFCE</h4>
+    <pre><code>apt install -y xfce4 xfce4-goodies lightdm firefox-esr network-manager</code></pre>
+
+    <h4>Minimal (Openbox)</h4>
+    <pre><code>apt install -y xorg openbox lightdm tint2 nitrogen firefox-esr network-manager</code></pre>
+
+    <h3>Install additional software</h3>
+    <pre><code># Core utilities
+apt install -y sudo nano vim-tiny less file htop gdebi gparted \
+  synaptic apt-utils
+
+# Multimedia and office
+apt install -y vlc gimp libreoffice-writer libreoffice-calc
+
+# Developer tools (optional)
+apt install -y git build-essential</code></pre>
+
+    <h3>Create the default user</h3>
+    <pre><code>adduser liveuser
+usermod -aG sudo liveuser
+
+mkdir -p /etc/systemd/system/getty@tty1.service.d/
+cat &gt; /etc/systemd/system/getty@tty1.service.d/override.conf &lt;&lt; EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin liveuser --noclear %I \$TERM
+EOF</code></pre>
+    <Warning>
+      <strong>Warning:</strong> Autologin should only be used in the live environment. Never
+      enable it in an installed system.
+    </Warning>
+  </section>
+
+  <section id="package-management">
+    <h2>Package management</h2>
+
+    <h3>Create a custom repository (optional)</h3>
+    <pre><code>apt install -y reprepro gpg
+
+mkdir -p /var/www/repos/apt/debian
+cd /var/www/repos/apt/debian
+
+gpg --gen-key
+gpg --export -a "Your Name" &gt; mydistro-key.asc</code></pre>
+
+    <h3>Include packages from third-party sources</h3>
+    <pre><code>wget -qO- https://packages.microsoft.com/keys/microsoft.asc \
+  | gpg --dearmor &gt; microsoft.gpg
+mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" \
+  &gt; /etc/apt/sources.list.d/vscode.list
+
+apt update
+apt install -y code</code></pre>
+
+    <h3>Create a meta-package</h3>
+    <pre><code>apt install -y equivs
+mkdir -p /tmp/metapackage
+cd /tmp/metapackage
+equivs-control mydistro-desktop.control</code></pre>
+
+    <p>Example <code>mydistro-desktop.control</code>:</p>
+    <pre><code>Section: metapackages
+Priority: optional
+Standards-Version: 3.9.2
+Package: mydistro-desktop
+Version: 1.0
+Maintainer: Your Name &lt;you@example.com&gt;
+Depends: firefox-esr, libreoffice-writer, libreoffice-calc, vlc, gimp
+Description: MyDistro desktop meta-package
+ Installs all standard components for the MyDistro desktop environment.</code></pre>
+
+    <pre><code>equivs-build mydistro-desktop.control
+dpkg -i mydistro-desktop_1.0_all.deb
+apt install -f</code></pre>
+  </section>
+
+  <section id="branding">
+    <h2>Branding</h2>
+
+    <h3>Custom GTK theme</h3>
+    <pre><code>apt install -y gtk2-engines-murrine gtk2-engines-pixbuf
+mkdir -p /usr/share/themes/MyDistro</code></pre>
+
+    <h3>Plymouth boot screen</h3>
+    <pre><code>apt install -y plymouth plymouth-themes
+mkdir -p /usr/share/plymouth/themes/mydistro
+
+cat &gt; /usr/share/plymouth/themes/mydistro/mydistro.plymouth &lt;&lt; EOF
+[Plymouth Theme]
+Name=MyDistro
+Description=MyDistro Boot Screen
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/mydistro
+ScriptFile=/usr/share/plymouth/themes/mydistro/mydistro.script
+EOF
+
+cat &gt; /usr/share/plymouth/themes/mydistro/mydistro.script &lt;&lt; EOF
+Window.SetBackgroundTopColor(0.0, 0.0, 0.0);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.0);
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(Window.GetWidth() / 2 - logo.image.GetWidth() / 2);
+logo.sprite.SetY(Window.GetHeight() / 2 - logo.image.GetHeight() / 2);
+EOF
+
+plymouth-set-default-theme -R mydistro</code></pre>
+    <Note>
+      <strong>Note:</strong> Place <code>logo.png</code> inside the theme directory before
+      rebuilding the initramfs.
+    </Note>
+
+    <h3>Default wallpaper</h3>
+    <pre><code>mkdir -p /usr/share/backgrounds/mydistro
+cp /path/to/wallpaper.jpg /usr/share/backgrounds/mydistro/</code></pre>
+
+    <h4>GNOME</h4>
+    <pre><code>apt install -y dconf-cli
+mkdir -p /etc/skel/.config/dconf
+cat &gt; /etc/skel/.config/dconf/user.d/background.conf &lt;&lt; EOF
+[org/gnome/desktop/background]
+picture-uri='file:///usr/share/backgrounds/mydistro/wallpaper.jpg'
+picture-options='stretched'
+EOF</code></pre>
+
+    <h4>KDE Plasma</h4>
+    <pre><code>mkdir -p /etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc
+cat &gt; /etc/skel/.config/plasma-org.kde.plasma.desktop-appletsrc &lt;&lt; EOF
+[Containments][1][Wallpaper][org.kde.image][General]
+Image=file:///usr/share/backgrounds/mydistro/wallpaper.jpg
+EOF</code></pre>
+
+    <h4>XFCE</h4>
+    <pre><code>mkdir -p /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml
+cat &gt; /etc/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml &lt;&lt; EOF
+&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;channel name="xfce4-desktop" version="1.0"&gt;
+  &lt;property name="backdrop" type="empty"&gt;
+    &lt;property name="screen0" type="empty"&gt;
+      &lt;property name="monitor0" type="empty"&gt;
+        &lt;property name="image-path" type="string"
+                  value="/usr/share/backgrounds/mydistro/wallpaper.jpg"/&gt;
+        &lt;property name="image-style" type="int" value="5"/&gt;
+      &lt;/property&gt;
+    &lt;/property&gt;
+  &lt;/property&gt;
+&lt;/channel&gt;
+EOF</code></pre>
+  </section>
+
+  <section id="iso-creation">
+    <h2>Building the ISO</h2>
+
+    <h3>Clean up the chroot</h3>
+    <pre><code>apt clean
+rm -rf /tmp/*
+exit</code></pre>
+
+    <h3>Unmount and compress</h3>
+    <pre><code>sudo umount ~/mydistro/chroot/dev/pts
+sudo umount ~/mydistro/chroot/dev
+sudo umount ~/mydistro/chroot/proc
+sudo umount ~/mydistro/chroot/sys
+
+sudo mksquashfs ~/mydistro/chroot ~/mydistro/iso/live/filesystem.squashfs \
+  -comp xz -e boot</code></pre>
+
+    <h3>Configure the bootloader</h3>
+    <pre><code>sudo cp ~/mydistro/chroot/boot/vmlinuz-* ~/mydistro/iso/boot/vmlinuz
+sudo cp ~/mydistro/chroot/boot/initrd.img-* ~/mydistro/iso/boot/initrd
+
+sudo cp /usr/lib/ISOLINUX/isolinux.bin ~/mydistro/iso/isolinux/
+sudo cp /usr/lib/syslinux/modules/bios/*.c32 ~/mydistro/iso/isolinux/
+
+cat &gt; ~/mydistro/iso/isolinux/isolinux.cfg &lt;&lt; EOF
+UI menu.c32
+PROMPT 0
+TIMEOUT 30
+DEFAULT mydistro
+
+LABEL mydistro
+  MENU LABEL Start MyDistro
+  LINUX /boot/vmlinuz
+  INITRD /boot/initrd
+  APPEND boot=live components quiet splash
+
+LABEL mydistro_safe
+  MENU LABEL Start MyDistro (Safe Graphics)
+  LINUX /boot/vmlinuz
+  INITRD /boot/initrd
+  APPEND boot=live components quiet splash nomodeset
+EOF</code></pre>
+
+    <h3>Generate the ISO</h3>
+    <pre><code>sudo xorriso -as mkisofs -r \
+  -J -joliet-long -l -iso-level 3 \
+  -partition_offset 16 \
+  -publisher "MyDistro" \
+  -A "MyDistro Live" \
+  -b isolinux/isolinux.bin \
+  -c isolinux/boot.cat \
+  -no-emul-boot -boot-load-size 4 -boot-info-table \
+  -o ~/mydistro.iso \
+  ~/mydistro/iso/</code></pre>
+    <Note>
+      <strong>Note:</strong> Test the ISO in a VM before distributing it publicly.
+    </Note>
+  </section>
+
+  <section id="testing">
+    <h2>Testing</h2>
+
+    <h3>Basic testing checklist</h3>
+    <ul>
+      <li>System boots successfully</li>
+      <li>Network connectivity works</li>
+      <li>Desktop environment launches</li>
+      <li>Installed applications run correctly</li>
+    </ul>
+
+    <h3>Extended testing checklist</h3>
+    <ul>
+      <li>System update (<code>apt upgrade</code>) succeeds</li>
+      <li>Installing additional packages works</li>
+      <li>Hardware compatibility (audio, webcam, Wi-Fi)</li>
+      <li>Localization and input methods</li>
+    </ul>
+
+    <h3>Test in QEMU</h3>
+    <pre><code>qemu-system-x86_64 -boot d -cdrom ~/mydistro.iso -m 2048</code></pre>
+    <Warning>
+      <strong>Warning:</strong> Always test both in live mode and after installation to disk
+      before a public release.
+    </Warning>
+  </section>
+
+  <section id="distribution">
+    <h2>Distribution</h2>
+
+    <h3>Generate checksums</h3>
+    <pre><code>cd ~/
+md5sum mydistro.iso &gt; mydistro.iso.md5
+sha256sum mydistro.iso &gt; mydistro.iso.sha256</code></pre>
+
+    <h3>Release checklist</h3>
+    <ul>
+      <li>Write release notes / changelog</li>
+      <li>Verify licenses of all included components</li>
+      <li>Set up a website and bug tracker</li>
+      <li>Publish ISO and checksums to a reliable hosting provider</li>
+    </ul>
+
+    <h3>Ongoing maintenance</h3>
+    <p>
+      After the first release you need to keep your distribution up to date with Debian security
+      patches, rebuild the ISO periodically, and triage user-reported bugs. Consider setting up
+      automatic rebuild pipelines with CI tools like Jenkins or GitHub Actions.
+    </p>
+  </section>
+</GuideLayout>

@@ -1,0 +1,399 @@
+---
+// SPDX-FileCopyrightText: 2026 AnmiTaliDev <anmitalidev@nuros.org>
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import GuideLayout from "@layouts/GuideLayout.astro";
+import Note from "@components/Note.astro";
+import Warning from "@components/Warning.astro";
+
+const toc = [
+  { id: "intro", label: "Introduction" },
+  { id: "requirements", label: "System requirements" },
+  { id: "packages", label: "Installing packages" },
+  { id: "setup", label: "Environment setup" },
+  { id: "repo", label: "Repo tool" },
+  { id: "source", label: "Downloading source" },
+  { id: "device", label: "Device support" },
+  { id: "build", label: "Building the firmware" },
+  { id: "custom", label: "Customization" },
+  { id: "flash", label: "Flashing" },
+  { id: "troubleshooting", label: "Troubleshooting" },
+];
+---
+
+<GuideLayout
+  title="AOSP Firmware"
+  description="Complete guide to building custom Android firmware based on the Android Open Source Project. From toolchain setup to flashing a finished image on a physical device."
+  difficulty="Expert"
+  toc={toc}
+>
+  <section id="intro">
+    <h2>Introduction</h2>
+    <p>
+      AOSP (Android Open Source Project) is the open-source base of Android maintained by Google.
+      Building custom firmware on top of AOSP gives you full control over the system — add new
+      features, harden security, remove bloatware, and support devices beyond their official
+      end-of-life.
+    </p>
+    <p>
+      This guide walks through the entire process: setting up a build environment, downloading
+      sources, adding device configs, compiling the image, and flashing the result.
+    </p>
+    <Note>
+      <strong>Note:</strong> Building AOSP requires a powerful machine and a reliable internet
+      connection. Expect the first full build to take several hours.
+    </Note>
+  </section>
+
+  <section id="requirements">
+    <h2>System requirements</h2>
+    <p>Before you start, verify that your machine meets the minimum requirements:</p>
+    <ul>
+      <li><strong>OS:</strong> Linux (Ubuntu/Debian recommended), macOS, or Windows with WSL2</li>
+      <li><strong>CPU:</strong> Multi-core processor, 8+ cores recommended</li>
+      <li><strong>RAM:</strong> 16 GB minimum, 32 GB or more recommended</li>
+      <li><strong>Disk:</strong> 200 GB free space (SSD strongly recommended)</li>
+      <li><strong>Network:</strong> High-speed connection for the initial source sync</li>
+    </ul>
+    <Warning>
+      <strong>Warning:</strong> A full AOSP build can take 1–8 hours depending on hardware.
+      Run long commands inside <code>screen</code> or <code>tmux</code> to survive disconnections.
+    </Warning>
+  </section>
+
+  <section id="packages">
+    <h2>Installing packages</h2>
+    <p>Install the required build dependencies for your OS.</p>
+
+    <h3>Ubuntu / Debian</h3>
+    <pre><code>sudo apt update
+sudo apt install git-core gnupg flex bison build-essential zip curl \
+  zlib1g-dev gcc-multilib g++-multilib libc6-dev-i386 lib32ncurses5-dev \
+  x11proto-core-dev libx11-dev lib32z1-dev libgl1-mesa-dev \
+  libxml2-utils xsltproc unzip fontconfig openjdk-11-jdk \
+  python3 python3-pip
+pip3 install argparse mkdocs ninja mako jinja2</code></pre>
+
+    <h3>Fedora</h3>
+    <pre><code>sudo dnf update
+sudo dnf install git curl wget gcc gcc-c++ \
+  glibc-devel.&#123;x86_64,i686&#125; zlib-devel.&#123;x86_64,i686&#125; \
+  libstdc++-devel.&#123;x86_64,i686&#125; ncurses-devel.&#123;x86_64,i686&#125; \
+  bison flex gperf SDL-devel squashfs-tools bzip2-devel make \
+  libxml2-utils unzip perl-Digest-SHA java-11-openjdk-devel \
+  python3 python3-pip
+pip3 install argparse mkdocs ninja mako jinja2</code></pre>
+
+    <h3>Arch Linux</h3>
+    <pre><code>sudo pacman -Syu
+sudo pacman -S git gnupg flex bison gcc gcc-libs gperf sdl wxgtk2 \
+  squashfs-tools curl ncurses zlib schedtool perl-switch zip unzip \
+  libxslt python python-virtualenv bc rsync ccache \
+  lib32-zlib lib32-ncurses lib32-readline lib32-gcc-libs jdk11-openjdk
+yay -S lib32-ncurses5-compat-libs lib32-readline5
+pip install argparse mkdocs ninja mako jinja2</code></pre>
+
+    <h3>macOS</h3>
+    <pre><code>ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+brew install git gnupg coreutils findutils gnu-sed gawk gnu-getopt \
+  openssl python ninja
+pip3 install argparse mkdocs mako jinja2
+brew tap homebrew/cask
+brew install --cask temurin11</code></pre>
+    <Note>
+      <strong>Note:</strong> macOS has limited AOSP support and may require additional setup for
+      case-sensitive filesystems.
+    </Note>
+  </section>
+
+  <section id="setup">
+    <h2>Environment setup</h2>
+    <p>Create the working directory and configure build environment variables.</p>
+
+    <h3>Create the working directory</h3>
+    <pre><code>mkdir -p ~/android/aosp
+cd ~/android/aosp</code></pre>
+
+    <h3>Configure environment variables</h3>
+    <p>Add the following to your <code>~/.bashrc</code> or <code>~/.zshrc</code>:</p>
+    <pre><code>export USE_CCACHE=1
+export CCACHE_EXEC=/usr/bin/ccache
+export CCACHE_DIR=~/.ccache
+export JACK_SERVER_VM_ARGUMENTS="-Dfile.encoding=UTF-8 -XX:+TieredCompilation -Xmx4g"
+export ANDROID_JACK_VM_ARGS="-Dfile.encoding=UTF-8 -XX:+TieredCompilation -Xmx4g"</code></pre>
+
+    <p>Apply the changes to your current session:</p>
+    <pre><code>source ~/.bashrc   # or source ~/.zshrc</code></pre>
+
+    <h3>Configure ccache</h3>
+    <pre><code>ccache -M 50G</code></pre>
+    <Note>
+      <strong>Tip:</strong> 50 GB of ccache is a good default. Subsequent builds will be
+      significantly faster once the cache is warm.
+    </Note>
+  </section>
+
+  <section id="repo">
+    <h2>Repo tool</h2>
+    <p>AOSP uses Google's <code>repo</code> tool to manage its multi-repository structure.</p>
+
+    <h3>Install repo</h3>
+    <pre><code>mkdir -p ~/bin
+curl https://storage.googleapis.com/git-repo-downloads/repo &gt; ~/bin/repo
+chmod a+x ~/bin/repo
+export PATH=~/bin:$PATH</code></pre>
+
+    <p>Add <code>export PATH=~/bin:$PATH</code> to your shell profile for persistence.</p>
+
+    <h3>Configure Git identity</h3>
+    <pre><code>git config --global user.name "Your Name"
+git config --global user.email "you@example.com"</code></pre>
+  </section>
+
+  <section id="source">
+    <h2>Downloading source</h2>
+    <p>Initialize the manifest and sync the full source tree.</p>
+
+    <h3>Initialize the manifest</h3>
+    <pre><code>cd ~/android/aosp
+repo init -u https://android.googlesource.com/platform/manifest \
+  -b android-13.0.0_r24</code></pre>
+    <Note>
+      <strong>Note:</strong> <code>android-13.0.0_r24</code> targets Android 13. Replace the tag
+      with any release listed on the Android source build-numbers page.
+    </Note>
+
+    <h3>Sync the source</h3>
+    <pre><code>repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags</code></pre>
+    <Warning>
+      <strong>Warning:</strong> This downloads roughly 100 GB of data. Run it inside a
+      <code>tmux</code> session to avoid losing progress on connection drops.
+    </Warning>
+
+    <p>Flag reference:</p>
+    <ul>
+      <li><code>-c</code> — fetch only the current branch</li>
+      <li><code>-j$(nproc --all)</code> — use all CPU cores</li>
+      <li><code>--force-sync</code> — overwrite local changes</li>
+      <li><code>--no-clone-bundle</code> — skip bundles (helps with unstable connections)</li>
+      <li><code>--no-tags</code> — skip git tags to reduce download size</li>
+    </ul>
+  </section>
+
+  <section id="device">
+    <h2>Device support</h2>
+    <p>
+      To build for a specific device, you need device tree, kernel, and vendor blobs. The easiest
+      starting point is LineageOS, which maintains configs for hundreds of devices.
+    </p>
+
+    <h3>Using LineageOS device trees</h3>
+    <pre><code>mkdir -p .repo/local_manifests</code></pre>
+
+    <p>
+      Create <code>.repo/local_manifests/device.xml</code> (example for Google Pixel 6):
+    </p>
+    <pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;manifest&gt;
+  &lt;project name="LineageOS/android_device_google_gs101"
+           path="device/google/gs101" remote="github" /&gt;
+  &lt;project name="LineageOS/android_device_google_pixel-common"
+           path="device/google/pixel-common" remote="github" /&gt;
+  &lt;project name="LineageOS/android_device_google_raviole"
+           path="device/google/raviole" remote="github" /&gt;
+  &lt;project name="LineageOS/android_kernel_google_gs101"
+           path="kernel/google/gs101" remote="github" /&gt;
+  &lt;project name="LineageOS/android_vendor_google"
+           path="vendor/google" remote="github" /&gt;
+&lt;/manifest&gt;</code></pre>
+
+    <pre><code>repo sync -j$(nproc --all)</code></pre>
+
+    <h3>Custom device configs</h3>
+    <p>If no tree exists for your device, you need to create:</p>
+    <ul>
+      <li><code>device/[vendor]/[codename]/AndroidProducts.mk</code></li>
+      <li><code>device/[vendor]/[codename]/BoardConfig.mk</code></li>
+      <li><code>device/[vendor]/[codename]/device.mk</code></li>
+      <li><code>device/[vendor]/[codename]/[codename].mk</code></li>
+    </ul>
+    <p>This is advanced work requiring deep knowledge of Android internals and kernel porting.</p>
+  </section>
+
+  <section id="build">
+    <h2>Building the firmware</h2>
+
+    <h3>Set up the build environment</h3>
+    <pre><code>cd ~/android/aosp
+source build/envsetup.sh</code></pre>
+
+    <h3>Select a build target</h3>
+    <pre><code>lunch aosp_[codename]-[variant]</code></pre>
+
+    <p>Example for Google Pixel 6 in debug mode:</p>
+    <pre><code>lunch aosp_oriole-userdebug</code></pre>
+
+    <p>Build variants:</p>
+    <ul>
+      <li><code>user</code> — restricted, no root, for end-users</li>
+      <li><code>userdebug</code> — like user but with root and debug features enabled</li>
+      <li><code>eng</code> — engineering build with full debug access</li>
+    </ul>
+
+    <h3>Start the build</h3>
+    <pre><code>make -j$(nproc --all)</code></pre>
+    <Note>
+      <strong>Tip:</strong> If RAM is limited, reduce parallelism: <code>make -j8</code>.
+    </Note>
+
+    <h3>Output files</h3>
+    <p>After a successful build, images land in:</p>
+    <pre><code>~/android/aosp/out/target/product/[codename]/</code></pre>
+    <ul>
+      <li><code>system.img</code> — system partition</li>
+      <li><code>vendor.img</code> — proprietary driver partition</li>
+      <li><code>boot.img</code> — kernel and initramfs</li>
+      <li><code>recovery.img</code> — recovery partition</li>
+      <li><code>userdata.img</code> — user data partition</li>
+    </ul>
+  </section>
+
+  <section id="custom">
+    <h2>Customization</h2>
+
+    <h3>Include a custom app</h3>
+    <ol>
+      <li>Create the app directory: <code>mkdir -p packages/apps/MyApp</code></li>
+      <li>Place source code there and create an <code>Android.mk</code> build file</li>
+      <li>Add the app to <code>device/[vendor]/[codename]/device.mk</code>:</li>
+    </ol>
+    <pre><code>PRODUCT_PACKAGES += \
+    MyApp</code></pre>
+
+    <h3>Override default system settings</h3>
+    <pre><code>mkdir -p device/[vendor]/[codename]/overlay/frameworks/base/core/res/res/values/</code></pre>
+    <p>Create <code>config.xml</code> in that directory:</p>
+    <pre><code>&lt;?xml version="1.0" encoding="utf-8"?&gt;
+&lt;resources&gt;
+    &lt;bool name="config_dozeAlwaysOnEnabled"&gt;true&lt;/bool&gt;
+&lt;/resources&gt;</code></pre>
+
+    <h3>Branding</h3>
+    <ol>
+      <li>Boot animation: <code>device/[vendor]/[codename]/bootanimation.zip</code></li>
+      <li>Default wallpaper: <code>frameworks/base/core/res/res/drawable-nodpi/default_wallpaper.png</code></li>
+      <li>Create a SystemUI overlay with your changes</li>
+    </ol>
+
+    <h3>Kernel modification</h3>
+    <pre><code>cd kernel/[vendor]/[codename]
+make menuconfig</code></pre>
+    <pre><code>cd ~/android/aosp
+make bootimage -j$(nproc --all)</code></pre>
+    <Warning>
+      <strong>Warning:</strong> Kernel modifications require solid Linux internals knowledge.
+      Wrong settings can make the device unbootable.
+    </Warning>
+  </section>
+
+  <section id="flash">
+    <h2>Flashing</h2>
+
+    <h3>Prepare the device</h3>
+    <ol>
+      <li>Enable Developer Options: Settings → About phone → tap Build number 7 times</li>
+      <li>Enable USB debugging: Settings → Developer options → USB debugging</li>
+      <li>
+        Unlock the bootloader:
+        <pre><code>adb reboot bootloader
+fastboot flashing unlock</code></pre>
+        Confirm on the device.
+      </li>
+    </ol>
+    <Warning>
+      <strong>Warning:</strong> Unlocking the bootloader wipes all data. Back up everything important first.
+    </Warning>
+
+    <h3>Flash the images</h3>
+    <pre><code>cd ~/android/aosp
+export DEVICE=[codename]
+fastboot flash boot    out/target/product/$DEVICE/boot.img
+fastboot flash system  out/target/product/$DEVICE/system.img
+fastboot flash vendor  out/target/product/$DEVICE/vendor.img
+fastboot flash dtbo    out/target/product/$DEVICE/dtbo.img
+fastboot flash vbmeta  out/target/product/$DEVICE/vbmeta.img --disable-verification
+fastboot reboot</code></pre>
+
+    <h3>Flash via fastboot update</h3>
+    <pre><code>fastboot update out/target/product/$DEVICE/[package-name].zip</code></pre>
+
+    <p>
+      The first boot takes longer than usual — the system performs initial optimization (dex2oat).
+      This is normal.
+    </p>
+  </section>
+
+  <section id="troubleshooting">
+    <h2>Troubleshooting</h2>
+
+    <h3>Build issues</h3>
+
+    <h4>command not found</h4>
+    <pre><code>source build/envsetup.sh</code></pre>
+    <p>Always initialize the build environment before running any build commands.</p>
+
+    <h4>Compilation errors</h4>
+    <p>Try a clean build:</p>
+    <pre><code>make clean
+make clobber
+source build/envsetup.sh
+lunch aosp_[codename]-userdebug
+make -j$(nproc --all)</code></pre>
+
+    <h4>Out of disk space</h4>
+    <pre><code>cd ~/android/aosp
+rm -rf out/target/product/*/obj/PACKAGING/</code></pre>
+
+    <h3>Flashing issues</h3>
+
+    <h4>Device not recognized by ADB</h4>
+    <ul>
+      <li>Verify USB debugging is enabled</li>
+      <li>Try a different USB cable or port</li>
+      <li>Install device drivers (Windows)</li>
+      <li>Run <code>adb devices</code> and confirm the device appears</li>
+    </ul>
+
+    <h4>fastboot: no permissions</h4>
+    <pre><code>sudo nano /etc/udev/rules.d/51-android.rules</code></pre>
+    <p>Add:</p>
+    <pre><code>SUBSYSTEM=="usb", ATTR&#123;idVendor&#125;=="[vendor-id]", MODE="0666", GROUP="plugdev"</code></pre>
+    <pre><code>sudo chmod a+r /etc/udev/rules.d/51-android.rules
+sudo service udev restart</code></pre>
+
+    <h4>Bootloop</h4>
+    <p>Restore stock firmware:</p>
+    <pre><code>fastboot flash system stock_system.img
+fastboot flash boot stock_boot.img
+fastboot reboot</code></pre>
+
+    <h4>Cannot mount /system</h4>
+    <pre><code>fastboot format:ext4 system
+fastboot flash system system.img</code></pre>
+
+    <h3>Signing images</h3>
+    <p>For production releases, sign your images with release keys:</p>
+    <pre><code>mkdir -p ~/.android-certs
+development/tools/make_key ~/.android-certs/releasekey \
+  '/C=US/ST=California/L=Mountain View/O=Android/CN=Android'
+development/tools/make_key ~/.android-certs/platform \
+  '/C=US/ST=California/L=Mountain View/O=Android/CN=Android'</code></pre>
+    <pre><code>sign_target_files_apks -o -d ~/.android-certs \
+  out/target/product/$DEVICE/obj/PACKAGING/target_files_intermediates/*-target_files-*.zip \
+  signed-target_files.zip
+
+ota_from_target_files -k ~/.android-certs/releasekey \
+  signed-target_files.zip \
+  signed-ota_update.zip</code></pre>
+  </section>
+</GuideLayout>
